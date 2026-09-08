@@ -41,11 +41,13 @@
     isLoading = true;
 
     try {
-      // TODO: Implement MCP API call in Change 14
-      // Simulate AI response for now
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      addMessage('assistant', '这个功能即将推出，敬请期待！');
+      // Call MCP through parent plugin
+      if (window.mcpPluginApi) {
+        const response = await window.mcpPluginApi.sendMessage(userMessage);
+        addMessage('assistant', response);
+      } else {
+        addMessage('assistant', 'MCP 服务未初始化。这个功能将在完整集成后可用。');
+      }
     } catch (error) {
       console.error('Failed to send message:', error);
       addMessage('assistant', '抱歉，发送消息失败。请稍后重试。');

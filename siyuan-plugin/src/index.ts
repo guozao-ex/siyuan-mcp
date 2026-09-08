@@ -30,8 +30,11 @@ export default class McpPlugin extends Plugin {
 
     // Initialize MCP client
     if (this.settings.autoConnect) {
-      this.initMcpClient();
+      await this.initMcpClient();
     }
+
+    // Expose API to components
+    this.exposeApi();
 
     // Add topbar icon
     this.addTopBar();
@@ -112,15 +115,61 @@ export default class McpPlugin extends Plugin {
   /**
    * Initialize MCP client
    */
-  private initMcpClient() {
+  private async initMcpClient() {
     try {
       this.mcpClient = createMcpClient({
         serverUrl: this.settings.mcpServerUrl,
       });
-      console.log('MCP client initialized');
+
+      // Test connection
+      const isConnected = await this.mcpClient.checkConnection();
+      if (isConnected) {
+        console.log('MCP client initialized and connected');
+        this.showMessage('MCP 服务器已连接');
+      } else {
+        console.warn('MCP client initialized but server not reachable');
+        this.showMessage('MCP 服务器无法访问', 3000, 'error');
+      }
     } catch (error) {
       console.error('Failed to initialize MCP client:', error);
+      this.showMessage('MCP 客户端初始化失败', 3000, 'error');
     }
+  }
+
+  /**
+   * Expose API to Svelte components
+   */
+  private exposeApi() {
+    (window as any).mcpPluginApi = {
+      sendMessage: async (message: string) => {
+        if (!this.mcpClient) {
+          throw new Error('MCP client not initialized');
+        }
+
+        // Search for relevant context
+        try {
+          const searchResult = await this.mcpClient.searchNotes(message, {
+            pageSize: 3,
+          });
+
+          // Build context from search results
+          let context = '';
+          if (searchResult.blocks && searchResult.blocks.length > 0) {
+            context = '\n\n相关笔记：\n';
+            searchResult.blocks.forEach((block: any) => {
+              context += `- ${block.path}: ${block.content}\n`;
+            });
+          }
+
+          // For now, return a simple response with context
+          // In future, this will call actual AI model
+          return `我收到了你的消息："${message}"${context}\n\n（实际 AI 对话功能将在后续版本中实现）`;
+        } catch (error) {
+          console.error('Failed to process message:', error);
+          throw new Error('处理消息失败');
+        }
+      },
+    };
   }
 
   /**
@@ -158,10 +207,10 @@ export default class McpPlugin extends Plugin {
               this.settingsComponent.$set({ visible: false });
             }
           },
-          onSave: (newSettings: PluginSettings) => {
+          onSave: async (newSettings: PluginSettings) => {
             this.settings = newSettings;
-            this.saveSettings();
-            this.initMcpClient();
+            await this.saveSettings();
+            await this.initMcpClient();
             this.showMessage('设置已保存');
             this.settingsVisible = false;
             if (this.settingsComponent) {

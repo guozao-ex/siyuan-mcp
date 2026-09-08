@@ -31,10 +31,12 @@ import type {
   BootProgressResponse,
   SiYuanApiError,
 } from './types.js';
+import { createCache, Cache } from '../utils/cache.js';
 
 export class SiYuanClient {
   private baseUrl: string;
   private token: string;
+  private cache: Cache;
 
   constructor(baseUrl?: string, token?: string) {
     this.baseUrl = baseUrl || process.env.SIYUAN_API_URL || 'http://127.0.0.1:6806';
@@ -44,6 +46,12 @@ export class SiYuanClient {
     if (this.baseUrl.endsWith('/')) {
       this.baseUrl = this.baseUrl.slice(0, -1);
     }
+
+    // Initialize cache
+    this.cache = createCache({
+      ttl: 5 * 60 * 1000, // 5 minutes
+      maxSize: 100,
+    });
   }
 
   /**
@@ -110,10 +118,21 @@ export class SiYuanClient {
   // ==================== Notebook APIs ====================
 
   /**
-   * List all notebooks
+   * List all notebooks with caching
    */
   async listNotebooks(): Promise<ListNotebooksResponse> {
-    return this.request<ListNotebooksResponse>('/api/notebook/lsNotebooks');
+    const cacheKey = 'notebooks:list';
+    const cached = this.cache.get(cacheKey);
+
+    if (cached) {
+      return cached;
+    }
+
+    const result = await this.request<ListNotebooksResponse>('/api/notebook/lsNotebooks');
+
+    // Cache for 1 minute (notebooks don't change often)
+    this.cache.set(cacheKey, result, 60 * 1000);
+    return result;
   }
 
   // ==================== Search APIs ====================
@@ -150,10 +169,23 @@ export class SiYuanClient {
   // ==================== Block APIs ====================
 
   /**
-   * Get block kramdown (markdown) content
+   * Get block kramdown (markdown) content with caching
    */
   async getBlockKramdown(id: string): Promise<GetBlockKramdownResponse> {
-    return this.request<GetBlockKramdownResponse>('/api/block/getBlockKramdown', { id });
+    const cacheKey = `block:kramdown:${id}`;
+    const cached = this.cache.get(cacheKey);
+
+    if (cached) {
+      return cached;
+    }
+
+    const result = await this.request<GetBlockKramdownResponse>(
+      '/api/block/getBlockKramdown',
+      { id }
+    );
+
+    this.cache.set(cacheKey, result);
+    return result;
   }
 
   /**
@@ -171,10 +203,18 @@ export class SiYuanClient {
   }
 
   /**
-   * Update an existing block
+   * Update an existing block (invalidates cache)
    */
   async updateBlock(request: UpdateBlockRequest): Promise<UpdateBlockResponse> {
-    return this.request<UpdateBlockResponse>('/api/block/updateBlock', request);
+    const result = await this.request<UpdateBlockResponse>(
+      '/api/block/updateBlock',
+      request
+    );
+
+    // Invalidate cache for this block
+    this.cache.delete(`block:kramdown:${request.id}`);
+
+    return result;
   }
 
   /**

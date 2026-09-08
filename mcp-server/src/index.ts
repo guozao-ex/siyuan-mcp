@@ -26,9 +26,33 @@ import {
   deleteDocument,
   appendToDocument,
 } from './tools/write.js';
+import { createHttpServer } from './utils/http-server.js';
+import { loadConfig, validateConfig, printConfig } from './utils/config.js';
+import { logger } from './utils/logger.js';
+
+// Load and validate configuration
+const config = loadConfig();
+const configErrors = validateConfig(config);
+
+if (configErrors.length > 0) {
+  console.error('Configuration errors:');
+  configErrors.forEach((error) => console.error(`  - ${error}`));
+  process.exit(1);
+}
+
+// Print configuration summary
+printConfig(config);
+
+// Get transport mode from configuration
+const TRANSPORT_MODE = config.transportMode;
+const HTTP_PORT = config.httpPort;
+const HTTP_HOST = config.httpHost;
 
 // Initialize SiYuan client
-const siyuanClient: SiYuanClient = createClient();
+const siyuanClient: SiYuanClient = createClient(
+  config.siyuanApiUrl,
+  config.siyuanApiToken
+);
 
 // Create MCP server
 const server = new Server(
@@ -332,30 +356,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 async function main() {
   // Check connection to SiYuan
-  console.error('Checking connection to SiYuan...');
+  logger.info('Checking connection to SiYuan...');
   const status = await siyuanClient.getConnectionStatus();
 
   if (!status.connected) {
-    console.error('Failed to connect to SiYuan:', status.error);
-    console.error('Please ensure:');
-    console.error('1. SiYuan is running');
-    console.error('2. SIYUAN_API_URL is set correctly (default: http://127.0.0.1:6806)');
-    console.error('3. SIYUAN_API_TOKEN is set if required');
+    logger.error('Failed to connect to SiYuan:', status.error);
+    logger.error('Please ensure:');
+    logger.error('1. SiYuan is running');
+    logger.error('2. SIYUAN_API_URL is set correctly (default: http://127.0.0.1:6806)');
+    logger.error('3. SIYUAN_API_TOKEN is set if required');
     process.exit(1);
   }
 
-  console.error(`Connected to SiYuan version ${status.version}`);
-  console.error('Starting MCP server...');
+  logger.info(`Connected to SiYuan version ${status.version}`);
+  logger.info(`Starting MCP server in ${TRANSPORT_MODE} mode...`);
 
-  // Start stdio transport
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-
-  console.error('SiYuan MCP server running on stdio');
+  if (TRANSPORT_MODE === 'http') {
+    // Start HTTP server
+    await createHttpServer(siyuanClient, {
+      port: HTTP_PORT,
+      host: HTTP_HOST,
+      cors: config.enableCors,
+    });
+    logger.info(`SiYuan MCP server running on http://${HTTP_HOST}:${HTTP_PORT}`);
+  } else {
+    // Start stdio transport
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    logger.info('SiYuan MCP server running on stdio');
+  }
 }
 
 // Start server
 main().catch((error) => {
-  console.error('Fatal error:', error);
+  logger.error('Fatal error:', error);
   process.exit(1);
 });
