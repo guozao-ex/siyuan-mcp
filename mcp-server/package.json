@@ -1,0 +1,32 @@
+{
+  "name": "@siyuan-note/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for SiYuan Note",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "siyuan-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "echo \"Tests will be added in Phase 5\""
+  },
+  "keywords": [
+    "mcp",
+    "siyuan",
+    "ai",
+    "agent"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  }
+}

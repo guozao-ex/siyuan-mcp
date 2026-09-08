@@ -1,0 +1,27 @@
+{
+  "name": "siyuan-plugin-mcp",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "SiYuan plugin for MCP integration with AI agents",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite build --watch --mode development",
+    "build": "vite build",
+    "test": "echo \"Tests will be added in Phase 5\""
+  },
+  "dependencies": {
+    "siyuan": "^0.9.16"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.1.2",
+    "@tsconfig/svelte": "^5.0.4",
+    "@types/node": "^22.5.5",
+    "sass": "^1.78.0",
+    "svelte": "^4.2.19",
+    "svelte-preprocess": "^6.0.2",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.5",
+    "vite-plugin-static-copy": "^1.0.6"
+  }
+}
