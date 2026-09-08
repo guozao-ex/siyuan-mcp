@@ -666,3 +666,73 @@ export interface GetBlockChildrenRequest {
 export interface GetBlockChildrenResponse {
   children: Block[];
 }
+
+// ==================== Final Batch: Remaining APIs ====================
+
+// Document APIs
+export interface GetDocResponse {
+  id: string;
+  content: string;
+  ial: string;
+  properties: Record<string, any>;
+}
+
+// System APIs
+export interface GetConfResponse {
+  conf: {
+    appearance: any;
+    editor: any;
+    export: any;
+    fileTree: any;
+    keymap: any;
+    lang: string;
+    search: any;
+    system: any;
+  };
+}
+
+// Export APIs
+export interface ExportResourcesResponse {
+  path: string;
+  zip: string;
+}
+
+// Tag APIs
+export interface GetTagResponse {
+  tag: string;
+  count: number;
+  blocks: Block[];
+}
+
+// Template APIs
+export interface ListTemplatesResponse {
+  templates: Array<{
+    path: string;
+    name: string;
+  }>;
+}
+
+// File Tree APIs
+export interface GetFileTreeResponse {
+  files: Array<{
+    id: string;
+    name: string;
+    path: string;
+    type: string;
+    subFileCount: number;
+  }>;
+}
+
+// Reference APIs
+export interface GetAllReferencesResponse {
+  backlinks: Array<{
+    id: string;
+    content: string;
+    path: string;
+  }>;
+  backmentions: Array<{
+    id: string;
+    content: string;
+    path: string;
+  }>;
+}

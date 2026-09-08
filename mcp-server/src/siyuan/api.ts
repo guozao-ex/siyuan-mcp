@@ -89,6 +89,13 @@ import type {
   GetBlockBreadcrumbRequest,
   GetBlockBreadcrumbResponse,
   TransferBlockRefRequest,
+  GetDocResponse,
+  GetConfResponse,
+  ExportResourcesResponse,
+  GetTagResponse,
+  ListTemplatesResponse,
+  GetFileTreeResponse,
+  GetAllReferencesResponse,
 } from './types.js';
 import { createCache, Cache } from '../utils/cache.js';
 
@@ -874,6 +881,84 @@ export class SiYuanClient {
    */
   async transferBlockRef(fromID: string, toID: string): Promise<void> {
     await this.request('/api/block/transferBlockRef', { fromID, toID });
+  }
+
+  // ==================== Final Batch: Remaining APIs ====================
+
+  /**
+   * Get document content (alternative to getBlockKramdown for document)
+   */
+  async getDoc(id: string): Promise<GetDocResponse> {
+    return this.request<GetDocResponse>('/api/filetree/getDoc', { id });
+  }
+
+  /**
+   * Set multiple block attributes
+   */
+  async setBlockAttrs(id: string, attrs: Record<string, string>): Promise<void> {
+    await this.request('/api/attr/setBlockAttrs', { id, attrs });
+  }
+
+  /**
+   * Open a notebook
+   */
+  async openNotebook(notebook: string): Promise<void> {
+    await this.request('/api/notebook/openNotebook', { notebook });
+  }
+
+  /**
+   * Get system configuration
+   */
+  async getConf(): Promise<GetConfResponse> {
+    return this.request<GetConfResponse>('/api/system/getConf', {});
+  }
+
+  /**
+   * Full text search blocks (alternative implementation)
+   */
+  async fullTextSearchBlock(query: string, types?: string[]): Promise<SearchBlocksResponse> {
+    return this.request<SearchBlocksResponse>('/api/search/fullTextSearchBlock', {
+      query,
+      types
+    });
+  }
+
+  /**
+   * Export resources (package with assets)
+   */
+  async exportResources(path: string): Promise<ExportResourcesResponse> {
+    return this.request<ExportResourcesResponse>('/api/export/exportResources', { path });
+  }
+
+  /**
+   * Get detailed tag information
+   */
+  async getTag(tag: string): Promise<GetTagResponse> {
+    return this.request<GetTagResponse>('/api/tag/getTag', { tag });
+  }
+
+  /**
+   * List all available templates
+   */
+  async listTemplates(): Promise<ListTemplatesResponse> {
+    return this.request<ListTemplatesResponse>('/api/template/listTemplates', {});
+  }
+
+  /**
+   * Get file tree info
+   */
+  async getFileTree(notebook: string, path?: string): Promise<GetFileTreeResponse> {
+    return this.request<GetFileTreeResponse>('/api/filetree/getFileTree', {
+      notebook,
+      path: path || '/'
+    });
+  }
+
+  /**
+   * Get all references for a block (includes backlinks and mentions)
+   */
+  async getAllReferences(id: string): Promise<GetAllReferencesResponse> {
+    return this.request<GetAllReferencesResponse>('/api/ref/getAllReferences', { id });
   }
 }
 
