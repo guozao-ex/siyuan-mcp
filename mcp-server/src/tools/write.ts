@@ -47,10 +47,10 @@ export async function createDocument(
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
   // Create document
-  const response = await client.createDocWithMd(notebook, normalizedPath, markdown);
+  const docId = await client.createDocWithMd(notebook, normalizedPath, markdown);
 
   return {
-    id: response.id,
+    id: docId,
     path: normalizedPath,
     message: `Document created successfully: ${title}`,
   };

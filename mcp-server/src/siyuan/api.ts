@@ -296,13 +296,14 @@ export class SiYuanClient {
 
   /**
    * Create document with markdown content
+   * @returns Document ID as a string
    */
   async createDocWithMd(
     notebook: string,
     path: string,
     markdown: string
-  ): Promise<CreateDocWithMdResponse> {
-    return this.request<CreateDocWithMdResponse>('/api/filetree/createDocWithMd', {
+  ): Promise<string> {
+    return this.request<string>('/api/filetree/createDocWithMd', {
       notebook,
       path,
       markdown,

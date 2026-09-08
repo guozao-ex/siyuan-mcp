@@ -181,9 +181,8 @@ export interface CreateDocWithMdRequest {
   markdown: string;
 }
 
-export interface CreateDocWithMdResponse {
-  id: string;
-}
+// Note: The API returns the document ID as a string directly, not an object
+export type CreateDocWithMdResponse = string;
 
 export interface GetDocInfoRequest {
   id: string;
