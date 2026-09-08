@@ -228,7 +228,7 @@ export function formatReadResult(result: ReadBlockResult | ReadDocumentResult): 
     lines.push(`Block ID: ${result.id}`);
   }
 
-  if (result.attributes) {
+  if ('attributes' in result && result.attributes) {
     lines.push('\nAttributes:');
     for (const [key, value] of Object.entries(result.attributes)) {
       lines.push(`  ${key}: ${value}`);

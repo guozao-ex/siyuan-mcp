@@ -36,13 +36,13 @@ export async function searchNotes(
 
   const response: SearchBlocksResponse = await client.searchBlocks({
     query,
-    boxes: notebooks,
-    method: 0, // keyword search
+    boxes: notebooks || [],
+    method: 0 as 0, // keyword search
     page,
     pageSize,
   });
 
-  const blocks = response.blocks.map((block) => ({
+  const blocks = (response.blocks || []).map((block) => ({
     id: block.id,
     type: getBlockTypeLabel(block.type),
     content: formatBlockContent(block.content),
@@ -113,7 +113,7 @@ export async function searchBlocks(
     types: typeFilter,
     boxes: notebooks,
     paths,
-    method: methodMap[method],
+    method: methodMap[method] as 0 | 1 | 2 | 3,
     page,
     pageSize,
   });

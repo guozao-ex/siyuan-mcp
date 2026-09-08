@@ -60,7 +60,7 @@ export class SiYuanClient {
   private async request<T>(endpoint: string, data?: any): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
@@ -79,7 +79,7 @@ export class SiYuanClient {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const result: BaseResponse<T> = await response.json();
+      const result = (await response.json()) as BaseResponse<T>;
 
       if (result.code !== 0) {
         const error = new Error(result.msg) as SiYuanApiError;
