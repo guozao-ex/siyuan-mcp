@@ -574,10 +574,33 @@ export class SiYuanClient {
   // ==================== Tag APIs ====================
 
   /**
-   * Get all tags
+   * Get all tags (using SQL query as alternative)
    */
   async getTags(): Promise<GetTagsResponse> {
-    return this.request<GetTagsResponse>('/api/tag/getTags', {});
+    const result = await this.sql(
+      `SELECT DISTINCT tag FROM blocks WHERE tag != "" AND tag IS NOT NULL`
+    );
+
+    // Process SQL result into tags array
+    const tagMap = new Map<string, number>();
+    result.forEach((row: any) => {
+      if (row.tag) {
+        // Tags can be comma-separated
+        const tags = row.tag.split(',').map((t: string) => t.trim());
+        tags.forEach((tag: string) => {
+          if (tag) {
+            tagMap.set(tag, (tagMap.get(tag) || 0) + 1);
+          }
+        });
+      }
+    });
+
+    const tags = Array.from(tagMap.entries()).map(([name, count]) => ({
+      name,
+      count
+    }));
+
+    return { tags };
   }
 
   // ==================== Second Batch: Asset APIs ====================
@@ -842,10 +865,23 @@ export class SiYuanClient {
   // ==================== Other APIs ====================
 
   /**
-   * Get shorthand (inbox)
+   * Get shorthand (inbox) - requires specific document ID
+   * Note: This API requires an id parameter in SiYuan v3.8.2
    */
-  async getShorthand(): Promise<GetShorthandResponse> {
-    return this.request<GetShorthandResponse>('/api/inbox/getShorthand', {});
+  async getShorthand(id?: string): Promise<GetShorthandResponse> {
+    if (!id) {
+      // Try to find shorthand document via SQL
+      const result = await this.sql(
+        `SELECT id, content FROM blocks WHERE path LIKE '%收集箱%' OR path LIKE '%shorthand%' OR hpath LIKE '%Inbox%' LIMIT 20`
+      );
+      return {
+        shorthand: result.map((row: any) => ({
+          id: row.id,
+          content: row.content
+        }))
+      };
+    }
+    return this.request<GetShorthandResponse>('/api/inbox/getShorthand', { id });
   }
 
   /**
@@ -938,20 +974,36 @@ export class SiYuanClient {
   }
 
   /**
-   * List all available templates
+   * List all available templates (using SQL to find template files)
    */
   async listTemplates(): Promise<ListTemplatesResponse> {
-    return this.request<ListTemplatesResponse>('/api/template/listTemplates', {});
+    // Query for template documents
+    const result = await this.sql(
+      `SELECT id, path, content FROM blocks WHERE type = 'd' AND path LIKE '%模板%' OR path LIKE '%template%' LIMIT 50`
+    );
+
+    const templates = result.map((row: any) => ({
+      path: row.path || '',
+      name: row.content || row.path || 'Untitled'
+    }));
+
+    return { templates };
   }
 
   /**
-   * Get file tree info
+   * Get file tree (using listDocsByPath as alternative)
    */
   async getFileTree(notebook: string, path?: string): Promise<GetFileTreeResponse> {
-    return this.request<GetFileTreeResponse>('/api/filetree/getFileTree', {
-      notebook,
-      path: path || '/'
-    });
+    const result = await this.listDocsByPath(notebook, path || '/');
+    return {
+      files: result.files.map(f => ({
+        id: f.id,
+        name: f.name || f.name1,
+        path: f.path,
+        type: 'doc',
+        subFileCount: f.subFileCount || 0
+      }))
+    };
   }
 
   /**
