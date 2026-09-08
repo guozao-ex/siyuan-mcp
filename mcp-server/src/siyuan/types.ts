@@ -251,3 +251,169 @@ export class SiYuanApiError extends Error {
     this.name = 'SiYuanApiError';
   }
 }
+
+// ==================== Asset APIs ====================
+
+export interface UploadAssetRequest {
+  assetsDirPath: string;
+  files: Array<{
+    name: string;
+    data: Buffer | string; // Buffer for binary, base64 string
+  }>;
+}
+
+export interface UploadAssetResponse {
+  errFiles: string[];
+  succMap: { [key: string]: string }; // filename -> asset path
+}
+
+// ==================== Export APIs ====================
+
+export interface ExportMdContentRequest {
+  id: string;
+}
+
+export interface ExportMdContentResponse {
+  id: string;
+  hPath: string;
+  content: string;
+}
+
+// ==================== Import APIs ====================
+
+export interface ImportStdMdRequest {
+  notebook: string;
+  localPath: string;
+  toPath: string;
+}
+
+export interface ImportStdMdResponse {
+  id: string;
+}
+
+// ==================== Notebook APIs ====================
+
+export interface CreateNotebookRequest {
+  name: string;
+  icon?: string;
+  sort?: number;
+  closed?: boolean;
+}
+
+export interface CreateNotebookResponse {
+  id: string;
+  name: string;
+}
+
+export interface CloseNotebookRequest {
+  notebook: string;
+}
+
+export interface RemoveNotebookRequest {
+  notebook: string;
+}
+
+export interface RenameNotebookRequest {
+  notebook: string;
+  name: string;
+}
+
+// ==================== File Tree APIs ====================
+
+export interface MoveDocsRequest {
+  fromNotebook: string;
+  fromPath: string;
+  toNotebook: string;
+  toPath: string;
+}
+
+export interface MoveDocsResponse {
+  id: string;
+}
+
+export interface ListDocsByPathRequest {
+  notebook: string;
+  path: string;
+}
+
+export interface ListDocsByPathResponse {
+  files: Array<{
+    path: string;
+    name: string;
+    icon: string;
+    name1: string;
+    alias: string;
+    memo: string;
+    bookmark: string;
+    id: string;
+    count: number;
+    subFileCount: number;
+  }>;
+}
+
+export interface GetHPathByIDRequest {
+  id: string;
+}
+
+export interface GetHPathByIDResponse {
+  hPath: string;
+}
+
+// ==================== Reference APIs ====================
+
+export interface GetBacklinkRequest {
+  id: string;
+  k?: string;
+  mk?: string;
+}
+
+export interface GetBacklinkResponse {
+  backlinks: Array<{
+    id: string;
+    block: Block;
+    blockPaths: Array<{
+      id: string;
+      name: string;
+      type: string;
+    }>;
+    dom: string;
+  }>;
+  linkRefsCount: number;
+  mentionsCount: number;
+}
+
+// ==================== Block APIs ====================
+
+export interface GetChildBlocksRequest {
+  id: string;
+}
+
+export interface GetChildBlocksResponse {
+  id: string;
+  blocks: Block[];
+}
+
+// ==================== Outline APIs ====================
+
+export interface GetDocOutlineRequest {
+  id: string;
+}
+
+export interface GetDocOutlineResponse {
+  blocks: Array<{
+    id: string;
+    name: string;
+    type: string;
+    depth: number;
+    count: number;
+  }>;
+}
+
+// ==================== Tag APIs ====================
+
+export interface GetTagsResponse {
+  tags: Array<{
+    name: string;
+    count: number;
+  }>;
+}

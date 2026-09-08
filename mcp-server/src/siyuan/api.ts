@@ -30,6 +30,23 @@ import type {
   VersionResponse,
   BootProgressResponse,
   SiYuanApiError,
+  UploadAssetRequest,
+  UploadAssetResponse,
+  ExportMdContentResponse,
+  ImportStdMdRequest,
+  ImportStdMdResponse,
+  CreateNotebookRequest,
+  CreateNotebookResponse,
+  MoveDocsRequest,
+  MoveDocsResponse,
+  ListDocsByPathResponse,
+  GetHPathByIDResponse,
+  GetBacklinkRequest,
+  GetBacklinkResponse,
+  GetChildBlocksResponse,
+  GetDocOutlineResponse,
+  GetTagsResponse,
+  Block,
 } from './types.js';
 import { createCache, Cache } from '../utils/cache.js';
 
@@ -391,6 +408,127 @@ export class SiYuanClient {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  // ==================== Asset APIs ====================
+
+  /**
+   * Upload asset files
+   */
+  async uploadAsset(request: UploadAssetRequest): Promise<UploadAssetResponse> {
+    return this.request<UploadAssetResponse>('/api/asset/upload', request);
+  }
+
+  // ==================== Export APIs ====================
+
+  /**
+   * Export document as Markdown content
+   */
+  async exportMdContent(id: string): Promise<ExportMdContentResponse> {
+    return this.request<ExportMdContentResponse>('/api/export/exportMdContent', { id });
+  }
+
+  // ==================== Import APIs ====================
+
+  /**
+   * Import standard Markdown file
+   */
+  async importStdMd(request: ImportStdMdRequest): Promise<ImportStdMdResponse> {
+    return this.request<ImportStdMdResponse>('/api/import/importStdMd', request);
+  }
+
+  // ==================== Notebook Advanced APIs ====================
+
+  /**
+   * Create a new notebook
+   */
+  async createNotebook(request: CreateNotebookRequest): Promise<CreateNotebookResponse> {
+    return this.request<CreateNotebookResponse>('/api/notebook/createNotebook', request);
+  }
+
+  /**
+   * Close a notebook
+   */
+  async closeNotebook(notebook: string): Promise<void> {
+    await this.request('/api/notebook/closeNotebook', { notebook });
+  }
+
+  /**
+   * Remove a notebook
+   */
+  async removeNotebook(notebook: string): Promise<void> {
+    await this.request('/api/notebook/removeNotebook', { notebook });
+  }
+
+  /**
+   * Rename a notebook
+   */
+  async renameNotebook(notebook: string, name: string): Promise<void> {
+    await this.request('/api/notebook/renameNotebook', { notebook, name });
+  }
+
+  // ==================== File Tree Advanced APIs ====================
+
+  /**
+   * Move documents
+   */
+  async moveDocs(request: MoveDocsRequest): Promise<MoveDocsResponse> {
+    return this.request<MoveDocsResponse>('/api/filetree/moveDocs', request);
+  }
+
+  /**
+   * List documents by path
+   */
+  async listDocsByPath(notebook: string, path: string): Promise<ListDocsByPathResponse> {
+    return this.request<ListDocsByPathResponse>('/api/filetree/listDocsByPath', {
+      notebook,
+      path,
+    });
+  }
+
+  /**
+   * Get human-readable path by ID
+   */
+  async getHPathByID(id: string): Promise<string> {
+    const response = await this.request<GetHPathByIDResponse>('/api/filetree/getHPathByID', { id });
+    return response.hPath;
+  }
+
+  // ==================== Reference APIs ====================
+
+  /**
+   * Get backlinks for a block
+   */
+  async getBacklink(request: GetBacklinkRequest): Promise<GetBacklinkResponse> {
+    return this.request<GetBacklinkResponse>('/api/ref/getBacklink', request);
+  }
+
+  // ==================== Block Advanced APIs ====================
+
+  /**
+   * Get child blocks (via API)
+   */
+  async getChildBlocksApi(id: string): Promise<Block[]> {
+    const response = await this.request<GetChildBlocksResponse>('/api/block/getChildBlocks', { id });
+    return response.blocks || [];
+  }
+
+  // ==================== Outline APIs ====================
+
+  /**
+   * Get document outline
+   */
+  async getDocOutline(id: string): Promise<GetDocOutlineResponse> {
+    return this.request<GetDocOutlineResponse>('/api/outline/getDocOutline', { id });
+  }
+
+  // ==================== Tag APIs ====================
+
+  /**
+   * Get all tags
+   */
+  async getTags(): Promise<GetTagsResponse> {
+    return this.request<GetTagsResponse>('/api/tag/getTags', {});
   }
 }
 
