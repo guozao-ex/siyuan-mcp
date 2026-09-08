@@ -417,3 +417,125 @@ export interface GetTagsResponse {
     count: number;
   }>;
 }
+
+// ==================== Second Batch APIs ====================
+
+// Asset APIs
+export interface InsertLocalAssetsRequest {
+  assetPaths: string[];
+  id: string;
+}
+
+export interface ResolveAssetPathRequest {
+  path: string;
+}
+
+export interface ResolveAssetPathResponse {
+  path: string;
+}
+
+// Template APIs
+export interface RenderTemplateRequest {
+  id: string;
+  path: string;
+}
+
+export interface RenderTemplateResponse {
+  content: string;
+  path: string;
+}
+
+// Export APIs
+export interface ExportHTMLRequest {
+  id: string;
+  pdf?: boolean;
+  savePath?: string;
+}
+
+export interface ExportHTMLResponse {
+  zip?: string;
+  html?: string;
+}
+
+export interface BatchExportMdRequest {
+  notebook: string;
+  path: string;
+}
+
+// Import APIs
+export interface ImportDataRequest {
+  notebook: string;
+  localPath: string;
+  toPath: string;
+}
+
+export interface ImportNotebookRequest {
+  localPath: string;
+}
+
+// File Tree APIs
+export interface SearchDocsRequest {
+  k: string;
+  notebook?: string;
+}
+
+export interface SearchDocsResponse {
+  docs: Array<{
+    id: string;
+    path: string;
+    box: string;
+    hPath: string;
+  }>;
+}
+
+// Reference APIs
+export interface GetBacklink2Request {
+  id: string;
+  beforeLen?: number;
+}
+
+export interface GetBackmentionRequest {
+  id: string;
+}
+
+// History APIs
+export interface GetDocHistoryRequest {
+  notebook: string;
+  path: string;
+}
+
+export interface GetDocHistoryResponse {
+  histories: Array<{
+    path: string;
+    title: string;
+    created: string;
+  }>;
+}
+
+export interface RollbackDocHistoryRequest {
+  notebook: string;
+  path: string;
+  historyPath: string;
+}
+
+// Snapshot APIs
+export interface CreateSnapshotRequest {
+  name?: string;
+}
+
+export interface CreateSnapshotResponse {
+  id: string;
+}
+
+export interface RollbackSnapshotRequest {
+  id: string;
+}
+
+// Bookmark APIs
+export interface GetBookmarkResponse {
+  bookmarks: Array<{
+    id: string;
+    name: string;
+    path: string;
+  }>;
+}

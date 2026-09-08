@@ -47,6 +47,27 @@ import type {
   GetDocOutlineResponse,
   GetTagsResponse,
   Block,
+  InsertLocalAssetsRequest,
+  ResolveAssetPathRequest,
+  ResolveAssetPathResponse,
+  RenderTemplateRequest,
+  RenderTemplateResponse,
+  ExportHTMLRequest,
+  ExportHTMLResponse,
+  BatchExportMdRequest,
+  ImportDataRequest,
+  ImportNotebookRequest,
+  SearchDocsRequest,
+  SearchDocsResponse,
+  GetBacklink2Request,
+  GetBackmentionRequest,
+  GetDocHistoryRequest,
+  GetDocHistoryResponse,
+  RollbackDocHistoryRequest,
+  CreateSnapshotRequest,
+  CreateSnapshotResponse,
+  RollbackSnapshotRequest,
+  GetBookmarkResponse,
 } from './types.js';
 import { createCache, Cache } from '../utils/cache.js';
 
@@ -529,6 +550,144 @@ export class SiYuanClient {
    */
   async getTags(): Promise<GetTagsResponse> {
     return this.request<GetTagsResponse>('/api/tag/getTags', {});
+  }
+
+  // ==================== Second Batch: Asset APIs ====================
+
+  /**
+   * Insert local assets
+   */
+  async insertLocalAssets(request: InsertLocalAssetsRequest): Promise<void> {
+    await this.request('/api/asset/insertLocalAssets', request);
+  }
+
+  /**
+   * Resolve asset path
+   */
+  async resolveAssetPath(path: string): Promise<string> {
+    const response = await this.request<ResolveAssetPathResponse>('/api/asset/resolveAssetPath', { path });
+    return response.path;
+  }
+
+  // ==================== Template APIs ====================
+
+  /**
+   * Render template
+   */
+  async renderTemplate(request: RenderTemplateRequest): Promise<RenderTemplateResponse> {
+    return this.request<RenderTemplateResponse>('/api/template/render', request);
+  }
+
+  /**
+   * Save document as template
+   */
+  async docSaveAsTemplate(id: string, name: string): Promise<void> {
+    await this.request('/api/template/docSaveAsTemplate', { id, name });
+  }
+
+  // ==================== Export APIs ====================
+
+  /**
+   * Export HTML
+   */
+  async exportHTML(request: ExportHTMLRequest): Promise<ExportHTMLResponse> {
+    return this.request<ExportHTMLResponse>('/api/export/exportHTML', request);
+  }
+
+  /**
+   * Batch export Markdown
+   */
+  async batchExportMd(request: BatchExportMdRequest): Promise<void> {
+    await this.request('/api/export/batchExportMd', request);
+  }
+
+  // ==================== Import APIs ====================
+
+  /**
+   * Import data from other software
+   */
+  async importData(request: ImportDataRequest): Promise<void> {
+    await this.request('/api/import/importData', request);
+  }
+
+  /**
+   * Import notebook
+   */
+  async importNotebook(request: ImportNotebookRequest): Promise<void> {
+    await this.request('/api/import/importNotebook', request);
+  }
+
+  // ==================== File Tree APIs ====================
+
+  /**
+   * Search documents
+   */
+  async searchDocs(request: SearchDocsRequest): Promise<SearchDocsResponse> {
+    return this.request<SearchDocsResponse>('/api/filetree/searchDocs', request);
+  }
+
+  // ==================== Reference APIs ====================
+
+  /**
+   * Get backlink2
+   */
+  async getBacklink2(request: GetBacklink2Request): Promise<GetBacklinkResponse> {
+    return this.request<GetBacklinkResponse>('/api/ref/getBacklink2', request);
+  }
+
+  /**
+   * Get backmention
+   */
+  async getBackmention(id: string): Promise<GetBacklinkResponse> {
+    return this.request<GetBacklinkResponse>('/api/ref/getBackmention', { id });
+  }
+
+  // ==================== History APIs ====================
+
+  /**
+   * Get document history
+   */
+  async getDocHistory(request: GetDocHistoryRequest): Promise<GetDocHistoryResponse> {
+    return this.request<GetDocHistoryResponse>('/api/history/getDocHistoryContent', request);
+  }
+
+  /**
+   * Rollback document history
+   */
+  async rollbackDocHistory(request: RollbackDocHistoryRequest): Promise<void> {
+    await this.request('/api/history/rollbackDocHistory', request);
+  }
+
+  // ==================== Snapshot APIs ====================
+
+  /**
+   * Create snapshot
+   */
+  async createSnapshot(name?: string): Promise<CreateSnapshotResponse> {
+    return this.request<CreateSnapshotResponse>('/api/snapshot/createSnapshot', { name });
+  }
+
+  /**
+   * Rollback snapshot
+   */
+  async rollbackSnapshot(id: string): Promise<void> {
+    await this.request('/api/snapshot/rollbackSnapshot', { id });
+  }
+
+  // ==================== Bookmark APIs ====================
+
+  /**
+   * Get bookmarks
+   */
+  async getBookmark(): Promise<GetBookmarkResponse> {
+    return this.request<GetBookmarkResponse>('/api/bookmark/getBookmark', {});
+  }
+
+  /**
+   * Rename bookmark
+   */
+  async renameBookmark(id: string, name: string): Promise<void> {
+    await this.request('/api/bookmark/renameBookmark', { id, name });
   }
 }
 
