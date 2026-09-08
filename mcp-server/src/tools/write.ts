@@ -126,11 +126,11 @@ export async function insertBlockBefore(
     `SELECT parent_id FROM blocks WHERE id = '${nextId}'`
   );
 
-  if (!sqlResponse.rows || sqlResponse.rows.length === 0) {
+  if (!sqlResponse || sqlResponse.length === 0) {
     throw new Error(`Block not found: ${nextId}`);
   }
 
-  const parentId = sqlResponse.rows[0].parent_id;
+  const parentId = sqlResponse[0].parent_id;
 
   // Insert block
   const response = await client.insertBlock({
@@ -166,11 +166,11 @@ export async function insertBlockAfter(
     `SELECT parent_id FROM blocks WHERE id = '${previousId}'`
   );
 
-  if (!sqlResponse.rows || sqlResponse.rows.length === 0) {
+  if (!sqlResponse || sqlResponse.length === 0) {
     throw new Error(`Block not found: ${previousId}`);
   }
 
-  const parentId = sqlResponse.rows[0].parent_id;
+  const parentId = sqlResponse[0].parent_id;
 
   // Insert block
   const response = await client.insertBlock({
@@ -292,7 +292,7 @@ export async function validateBlock(
 ): Promise<boolean> {
   try {
     const result = await client.sql(`SELECT id FROM blocks WHERE id = '${blockId}'`);
-    return result.rows && result.rows.length > 0;
+    return result && result.length > 0;
   } catch (error) {
     return false;
   }

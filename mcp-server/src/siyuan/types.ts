@@ -224,8 +224,9 @@ export interface SqlQueryRequest {
 }
 
 export interface SqlQueryResponse {
-  columns: string[];
-  rows: Array<{ [key: string]: any }>;
+  code: number;
+  msg: string;
+  data: Array<{ [key: string]: any }>;
 }
 
 // ==================== System ====================

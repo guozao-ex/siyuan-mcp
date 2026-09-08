@@ -72,7 +72,13 @@ export class SiYuanClient {
       const response = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify(data || {}),
+        body: JSON.stringify(data || {}, (key, value) => {
+          // Ensure strings are properly encoded
+          if (typeof value === 'string') {
+            return value;
+          }
+          return value;
+        }),
       });
 
       if (!response.ok) {
@@ -138,10 +144,40 @@ export class SiYuanClient {
   // ==================== Search APIs ====================
 
   /**
-   * Search blocks
+   * Search blocks using SQL (more reliable than search API)
    */
   async searchBlocks(request: SearchBlocksRequest): Promise<SearchBlocksResponse> {
-    return this.request<SearchBlocksResponse>('/api/search/searchBlock', request);
+    // Use SQL query as a fallback since the search API returns empty
+    const { query, boxes, page = 1, pageSize = 20 } = request;
+
+    // Escape single quotes in query to prevent SQL injection
+    const safeQuery = query.replace(/'/g, "''");
+
+    let sqlWhere = `content LIKE '%${safeQuery}%'`;
+
+    if (boxes && boxes.length > 0) {
+      const boxFilter = boxes.map(b => `'${b.replace(/'/g, "''")}'`).join(',');
+      sqlWhere += ` AND box IN (${boxFilter})`;
+    }
+
+    const offset = (page - 1) * pageSize;
+    const stmt = `SELECT * FROM blocks WHERE ${sqlWhere} ORDER BY updated DESC LIMIT ${pageSize} OFFSET ${offset}`;
+
+    const blocks = await this.sql(stmt);
+
+    // Get total count
+    const countStmt = `SELECT COUNT(*) as count FROM blocks WHERE ${sqlWhere}`;
+    const countResult = await this.sql(countStmt);
+    const total = (countResult[0] as any)?.count || blocks.length;
+
+    return {
+      blocks: blocks as any[],
+      matchedBlockCount: total,
+      matchedRootCount: blocks.filter((b: any, i: number, arr: any[]) =>
+        arr.findIndex(x => x.root_id === b.root_id) === i
+      ).length,
+      pageCount: Math.ceil(total / pageSize),
+    };
   }
 
   /**
@@ -310,7 +346,7 @@ export class SiYuanClient {
    */
   async getDocChildBlocks(id: string): Promise<any[]> {
     const result = await this.sql(`SELECT * FROM blocks WHERE parent_id = '${id}' ORDER BY sort`);
-    return result.rows || [];
+    return result || [];
   }
 
   // ==================== SQL APIs ====================
@@ -318,8 +354,9 @@ export class SiYuanClient {
   /**
    * Execute SQL query
    */
-  async sql(stmt: string): Promise<SqlQueryResponse> {
-    return this.request<SqlQueryResponse>('/api/query/sql', { stmt });
+  async sql(stmt: string): Promise<Array<{ [key: string]: any }>> {
+    const response = await this.request<Array<{ [key: string]: any }>>('/api/query/sql', { stmt });
+    return response;
   }
 
   // ==================== Helper Methods ====================

@@ -42,11 +42,11 @@ export async function readBlock(
     `SELECT * FROM blocks WHERE id = '${id}'`
   );
 
-  if (!sqlResponse.rows || sqlResponse.rows.length === 0) {
+  if (!sqlResponse || sqlResponse.length === 0) {
     throw new Error(`Block not found: ${id}`);
   }
 
-  const block = sqlResponse.rows[0];
+  const block = sqlResponse[0];
 
   const result: ReadBlockResult = {
     id: block.id,
@@ -86,11 +86,11 @@ export async function readDocument(
     `SELECT * FROM blocks WHERE id = '${id}'`
   );
 
-  if (!sqlResponse.rows || sqlResponse.rows.length === 0) {
+  if (!sqlResponse || sqlResponse.length === 0) {
     throw new Error(`Document not found: ${id}`);
   }
 
-  const block = sqlResponse.rows[0];
+  const block = sqlResponse[0];
 
   let fullMarkdown = kramdownResponse.kramdown || '';
 
@@ -100,10 +100,10 @@ export async function readDocument(
       `SELECT * FROM blocks WHERE root_id = '${id}' AND id != '${id}' ORDER BY sort`
     );
 
-    if (children.rows && children.rows.length > 0) {
+    if (children && children.length > 0) {
       const childMarkdowns: string[] = [];
 
-      for (const child of children.rows) {
+      for (const child of children) {
         try {
           const childKramdown = await client.getBlockKramdown(child.id);
           if (childKramdown.kramdown) {

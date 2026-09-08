@@ -59,8 +59,9 @@ export class HttpServer {
       );
     }
 
-    // Parse JSON bodies
+    // Parse JSON bodies with UTF-8 encoding
     this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     // Rate limiting
     this.app.use((req, res, next) => {
@@ -233,6 +234,7 @@ export class HttpServer {
           return;
       }
 
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.json({
         content: [
           {
@@ -256,6 +258,7 @@ export class HttpServer {
       const name = toolName || req.body.name || 'unknown';
       logger.logToolCall(name, req.body, duration, false);
 
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.status(500).json({
         content: [
           {
