@@ -68,6 +68,27 @@ import type {
   CreateSnapshotResponse,
   RollbackSnapshotRequest,
   GetBookmarkResponse,
+  GetUnusedAssetsResponse,
+  RemoveUnusedAssetsRequest,
+  RenderSprigRequest,
+  RenderSprigResponse,
+  ExportPDFRequest,
+  ExportDocxRequest,
+  ImportSYRequest,
+  GetHPathByPathRequest,
+  GetHPathByPathResponse,
+  GetNotebookHistoryRequest,
+  GetNotebookHistoryResponse,
+  RemoveSnapshotRequest,
+  PerformSyncRequest,
+  GetSyncStatusResponse,
+  CreateCloudSnapshotRequest,
+  GetShorthandResponse,
+  PushMsgRequest,
+  GetRiffDueCardsResponse,
+  GetBlockBreadcrumbRequest,
+  GetBlockBreadcrumbResponse,
+  TransferBlockRefRequest,
 } from './types.js';
 import { createCache, Cache } from '../utils/cache.js';
 
@@ -688,6 +709,171 @@ export class SiYuanClient {
    */
   async renameBookmark(id: string, name: string): Promise<void> {
     await this.request('/api/bookmark/renameBookmark', { id, name });
+  }
+
+  // ==================== Third Batch: Asset APIs ====================
+
+  /**
+   * Get unused assets
+   */
+  async getUnusedAssets(): Promise<string[]> {
+    const response = await this.request<GetUnusedAssetsResponse>('/api/asset/getUnusedAssets', {});
+    return response.assets || [];
+  }
+
+  /**
+   * Remove unused assets
+   */
+  async removeUnusedAssets(assets: string[]): Promise<void> {
+    await this.request('/api/asset/removeUnusedAssets', { assets });
+  }
+
+  // ==================== Template APIs ====================
+
+  /**
+   * Render Sprig template
+   */
+  async renderSprig(template: string): Promise<string> {
+    const response = await this.request<RenderSprigResponse>('/api/template/renderSprig', { template });
+    return response.content;
+  }
+
+  /**
+   * Render template content
+   */
+  async renderTemplateContent(id: string, path: string): Promise<string> {
+    const response = await this.request<RenderTemplateResponse>('/api/template/renderTemplate', { id, path });
+    return response.content;
+  }
+
+  // ==================== Export APIs ====================
+
+  /**
+   * Export PDF
+   */
+  async exportPDF(request: ExportPDFRequest): Promise<void> {
+    await this.request('/api/export/exportPDF', request);
+  }
+
+  /**
+   * Export Word document
+   */
+  async exportDocx(request: ExportDocxRequest): Promise<void> {
+    await this.request('/api/export/exportDocx', request);
+  }
+
+  // ==================== Import APIs ====================
+
+  /**
+   * Import SiYuan data
+   */
+  async importSY(localPath: string): Promise<void> {
+    await this.request('/api/import/importSY', { localPath });
+  }
+
+  // ==================== File Tree APIs ====================
+
+  /**
+   * Get human-readable path by path
+   */
+  async getHPathByPath(notebook: string, path: string): Promise<string> {
+    const response = await this.request<GetHPathByPathResponse>('/api/filetree/getHPathByPath', {
+      notebook,
+      path,
+    });
+    return response.hPath;
+  }
+
+  // ==================== History APIs ====================
+
+  /**
+   * Get notebook history
+   */
+  async getNotebookHistory(notebook: string): Promise<GetNotebookHistoryResponse> {
+    return this.request<GetNotebookHistoryResponse>('/api/history/getNotebookHistory', { notebook });
+  }
+
+  /**
+   * Clear workspace history
+   */
+  async clearWorkspaceHistory(): Promise<void> {
+    await this.request('/api/history/clearWorkspaceHistory', {});
+  }
+
+  // ==================== Snapshot APIs ====================
+
+  /**
+   * Remove snapshots
+   */
+  async removeSnapshot(ids: string[]): Promise<void> {
+    await this.request('/api/snapshot/removeSnapshot', { ids });
+  }
+
+  // ==================== Sync APIs ====================
+
+  /**
+   * Perform sync
+   */
+  async performSync(mobileSwitch?: boolean): Promise<void> {
+    await this.request('/api/sync/performSync', { mobileSwitch });
+  }
+
+  /**
+   * Get sync status
+   */
+  async getSyncStatus(): Promise<GetSyncStatusResponse> {
+    return this.request<GetSyncStatusResponse>('/api/sync/getSyncStatus', {});
+  }
+
+  /**
+   * Create cloud snapshot
+   */
+  async createCloudSnapshot(name?: string): Promise<void> {
+    await this.request('/api/sync/createCloudSnapshot', { name });
+  }
+
+  // ==================== Other APIs ====================
+
+  /**
+   * Get shorthand (inbox)
+   */
+  async getShorthand(): Promise<GetShorthandResponse> {
+    return this.request<GetShorthandResponse>('/api/inbox/getShorthand', {});
+  }
+
+  /**
+   * Push notification message
+   */
+  async pushMsg(msg: string, timeout?: number): Promise<void> {
+    await this.request('/api/notification/pushMsg', { msg, timeout });
+  }
+
+  /**
+   * Push error message
+   */
+  async pushErrMsg(msg: string, timeout?: number): Promise<void> {
+    await this.request('/api/notification/pushErrMsg', { msg, timeout });
+  }
+
+  /**
+   * Get riff due cards (spaced repetition)
+   */
+  async getRiffDueCards(): Promise<GetRiffDueCardsResponse> {
+    return this.request<GetRiffDueCardsResponse>('/api/riff/getRiffDueCards', {});
+  }
+
+  /**
+   * Get block breadcrumb
+   */
+  async getBlockBreadcrumb(id: string): Promise<GetBlockBreadcrumbResponse> {
+    return this.request<GetBlockBreadcrumbResponse>('/api/block/getBlockBreadcrumb', { id });
+  }
+
+  /**
+   * Transfer block reference
+   */
+  async transferBlockRef(fromID: string, toID: string): Promise<void> {
+    await this.request('/api/block/transferBlockRef', { fromID, toID });
   }
 }
 

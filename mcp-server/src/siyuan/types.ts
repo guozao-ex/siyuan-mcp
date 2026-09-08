@@ -539,3 +539,130 @@ export interface GetBookmarkResponse {
     path: string;
   }>;
 }
+
+// ==================== Third Batch: Low Priority APIs ====================
+
+// Asset APIs (remaining)
+export interface GetUnusedAssetsResponse {
+  assets: string[];
+}
+
+export interface RemoveUnusedAssetsRequest {
+  assets: string[];
+}
+
+// Template APIs (remaining)
+export interface RenderSprigRequest {
+  template: string;
+}
+
+export interface RenderSprigResponse {
+  content: string;
+}
+
+// Export APIs (remaining)
+export interface ExportPDFRequest {
+  id: string;
+  savePath?: string;
+}
+
+export interface ExportDocxRequest {
+  id: string;
+  savePath?: string;
+}
+
+// Import APIs (remaining)
+export interface ImportSYRequest {
+  localPath: string;
+}
+
+// File Tree APIs (remaining)
+export interface GetHPathByPathRequest {
+  notebook: string;
+  path: string;
+}
+
+export interface GetHPathByPathResponse {
+  hPath: string;
+}
+
+// History APIs (remaining)
+export interface GetNotebookHistoryRequest {
+  notebook: string;
+}
+
+export interface GetNotebookHistoryResponse {
+  histories: Array<{
+    hPath: string;
+    items: Array<{
+      path: string;
+      title: string;
+      created: string;
+    }>;
+  }>;
+}
+
+// Snapshot APIs (remaining)
+export interface RemoveSnapshotRequest {
+  ids: string[];
+}
+
+// Sync APIs
+export interface PerformSyncRequest {
+  mobileSwitch?: boolean;
+}
+
+export interface GetSyncStatusResponse {
+  syncing: boolean;
+  stat: string;
+}
+
+export interface CreateCloudSnapshotRequest {
+  name?: string;
+}
+
+// Other APIs
+export interface GetShorthandResponse {
+  shorthand: Array<{
+    id: string;
+    content: string;
+  }>;
+}
+
+export interface PushMsgRequest {
+  msg: string;
+  timeout?: number;
+}
+
+export interface GetRiffDueCardsResponse {
+  cards: Array<{
+    id: string;
+    blockID: string;
+  }>;
+}
+
+export interface GetBlockBreadcrumbRequest {
+  id: string;
+}
+
+export interface GetBlockBreadcrumbResponse {
+  breadcrumb: Array<{
+    id: string;
+    name: string;
+    type: string;
+  }>;
+}
+
+export interface TransferBlockRefRequest {
+  fromID: string;
+  toID: string;
+}
+
+// Additional Block APIs
+export interface GetBlockChildrenRequest {
+  id: string;
+}
+
+export interface GetBlockChildrenResponse {
+  children: Block[];
+}
