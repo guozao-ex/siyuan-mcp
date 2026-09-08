@@ -1,0 +1,272 @@
+/**
+ * MCP Plugin Main Styles
+ * Adapts to SiYuan theme variables
+ */
+
+/* ==================== Global Styles ==================== */
+
+.mcp-plugin {
+  font-family: var(--b3-font-family);
+  font-size: var(--b3-font-size);
+  color: var(--b3-theme-on-background);
+}
+
+/* ==================== Topbar Icon ==================== */
+
+.mcp-plugin__topbar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border-radius: 4px;
+}
+
+.mcp-plugin__topbar-icon:hover {
+  background-color: var(--b3-theme-surface);
+}
+
+.mcp-plugin__topbar-icon svg {
+  width: 20px;
+  height: 20px;
+  color: var(--b3-theme-on-background);
+}
+
+/* ==================== Block Menu Items ==================== */
+
+.mcp-plugin__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.mcp-plugin__menu-item:hover {
+  background-color: var(--b3-theme-surface);
+}
+
+.mcp-plugin__menu-item svg {
+  width: 16px;
+  height: 16px;
+  color: var(--b3-theme-primary);
+}
+
+/* ==================== Loading Indicator ==================== */
+
+.mcp-plugin__loading {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--b3-theme-surface);
+  border-top-color: var(--b3-theme-primary);
+  border-radius: 50%;
+  animation: mcp-spin 0.8s linear infinite;
+}
+
+@keyframes mcp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==================== Messages / Toast ==================== */
+
+.mcp-plugin__message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 20px;
+  background: var(--b3-theme-surface);
+  color: var(--b3-theme-on-surface);
+  border: 1px solid var(--b3-theme-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  animation: mcp-message-slide-in 0.3s ease-out;
+}
+
+.mcp-plugin__message--error {
+  background: var(--b3-theme-error);
+  color: var(--b3-theme-on-error);
+  border-color: var(--b3-theme-error);
+}
+
+.mcp-plugin__message--success {
+  background: var(--b3-theme-primary);
+  color: var(--b3-theme-on-primary);
+  border-color: var(--b3-theme-primary);
+}
+
+@keyframes mcp-message-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ==================== Utility Classes ==================== */
+
+.mcp-plugin__hidden {
+  display: none !important;
+}
+
+.mcp-plugin__disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ==================== Responsive Design ==================== */
+
+@media (max-width: 768px) {
+  .ai-panel {
+    width: 100%;
+    right: 0;
+    left: 0;
+    max-height: 90vh;
+    border-radius: 0;
+  }
+
+  .settings-panel__dialog {
+    width: 100%;
+    max-width: none;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+}
+
+/* ==================== Dark Mode Adjustments ==================== */
+
+body[data-theme-mode="dark"] {
+  .ai-panel,
+  .settings-panel__dialog {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .message__text {
+    background: var(--b3-theme-surface-light);
+  }
+}
+
+/* ==================== Scrollbar Styling ==================== */
+
+.ai-panel__messages::-webkit-scrollbar,
+.settings-panel__content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ai-panel__messages::-webkit-scrollbar-track,
+.settings-panel__content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ai-panel__messages::-webkit-scrollbar-thumb,
+.settings-panel__content::-webkit-scrollbar-thumb {
+  background: var(--b3-theme-surface);
+  border-radius: 4px;
+}
+
+.ai-panel__messages::-webkit-scrollbar-thumb:hover,
+.settings-panel__content::-webkit-scrollbar-thumb:hover {
+  background: var(--b3-theme-surface-light);
+}
+
+/* ==================== Animation Utilities ==================== */
+
+.mcp-plugin__fade-in {
+  animation: mcp-fade-in 0.3s ease-out;
+}
+
+.mcp-plugin__fade-out {
+  animation: mcp-fade-out 0.3s ease-out;
+}
+
+@keyframes mcp-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mcp-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* ==================== Focus Styles ==================== */
+
+.ai-panel__textarea:focus,
+.settings-field__input:focus {
+  outline: none;
+  border-color: var(--b3-theme-primary);
+  box-shadow: 0 0 0 2px var(--b3-theme-primary-lighter);
+}
+
+/* ==================== Print Styles ==================== */
+
+@media print {
+  .ai-panel,
+  .settings-panel,
+  .mcp-plugin__topbar-icon {
+    display: none !important;
+  }
+}
+
+/* ==================== Accessibility ==================== */
+
+.mcp-plugin__visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Focus visible for keyboard navigation */
+.ai-panel__send:focus-visible,
+.settings-panel__button:focus-visible,
+.mcp-plugin__topbar-icon:focus-visible {
+  outline: 2px solid var(--b3-theme-primary);
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .ai-panel,
+  .settings-panel__dialog {
+    border-width: 2px;
+  }
+
+  .message__text {
+    border: 1px solid var(--b3-theme-border);
+  }
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "openAiPanel": "打开 AI 面板",
+  "summarize": "总结内容",
+  "continueWriting": "继续写作",
+  "improveText": "改进文字",
+  "processing": "处理中...",
+  "featureComingSoon": "功能即将推出",
+  "operationFailed": "操作失败",
+  "settings": "设置",
+  "mcpServerUrl": "MCP 服务器地址",
+  "apiToken": "API Token",
+  "save": "保存",
+  "cancel": "取消",
+  "settingsSaved": "设置已保存",
+  "aiPanel": {
+    "title": "AI 对话",
+    "placeholder": "输入消息... (Enter 发送, Shift+Enter 换行)",
+    "welcomeMessage": "你好！我是 AI 助手，可以帮你处理笔记。有什么我可以帮助你的吗？",
+    "errorMessage": "抱歉，发送消息失败。请稍后重试。",
+    "comingSoon": "这个功能即将推出，敬请期待！"
+  },
+  "settings": {
+    "title": "MCP 插件设置",
+    "connection": "连接配置",
+    "mcpServerUrl": "MCP 服务器地址",
+    "mcpServerUrlHint": "MCP 服务器的 HTTP 地址（HTTP 模式将在 Phase 4 实现）",
+    "apiToken": "API Token",
+    "apiTokenHint": "如果思源笔记启用了 API 认证，需要填写此项",
+    "autoConnect": "启动时自动连接",
+    "autoConnectHint": "插件加载时自动连接 MCP 服务器",
+    "about": "关于",
+    "version": "思源 MCP 插件 v0.1.0",
+    "description": "通过 MCP 协议连接 AI Agent 和思源笔记",
+    "github": "GitHub 仓库",
+    "resetToDefault": "重置为默认",
+    "required": "*"
+  },
+  "blockMenu": {
+    "summarize": "AI 总结",
+    "continueWriting": "AI 续写",
+    "improveText": "AI 改进"
+  },
+  "messages": {
+    "summaryGenerated": "摘要已生成",
+    "continuationCompleted": "续写已完成",
+    "textImproved": "文字已改进",
+    "blockContentEmpty": "块内容为空",
+    "mcpServerNotConfigured": "请先在设置中配置 MCP 服务器",
+    "settingsSaved": "设置已保存"
+  }
+}

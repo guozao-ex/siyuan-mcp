@@ -1,0 +1,51 @@
+{
+  "openAiPanel": "Open AI Panel",
+  "summarize": "Summarize",
+  "continueWriting": "Continue Writing",
+  "improveText": "Improve Text",
+  "processing": "Processing...",
+  "featureComingSoon": "Feature coming soon",
+  "operationFailed": "Operation failed",
+  "settings": "Settings",
+  "mcpServerUrl": "MCP Server URL",
+  "apiToken": "API Token",
+  "save": "Save",
+  "cancel": "Cancel",
+  "settingsSaved": "Settings saved",
+  "aiPanel": {
+    "title": "AI Chat",
+    "placeholder": "Type a message... (Enter to send, Shift+Enter for new line)",
+    "welcomeMessage": "Hello! I'm your AI assistant. How can I help you with your notes today?",
+    "errorMessage": "Sorry, failed to send message. Please try again later.",
+    "comingSoon": "This feature is coming soon!"
+  },
+  "settings": {
+    "title": "MCP Plugin Settings",
+    "connection": "Connection Configuration",
+    "mcpServerUrl": "MCP Server URL",
+    "mcpServerUrlHint": "HTTP address of the MCP server (HTTP mode will be implemented in Phase 4)",
+    "apiToken": "API Token",
+    "apiTokenHint": "Required if SiYuan API authentication is enabled",
+    "autoConnect": "Auto-connect on startup",
+    "autoConnectHint": "Automatically connect to MCP server when plugin loads",
+    "about": "About",
+    "version": "SiYuan MCP Plugin v0.1.0",
+    "description": "Connect AI agents to SiYuan via MCP protocol",
+    "github": "GitHub Repository",
+    "resetToDefault": "Reset to Default",
+    "required": "*"
+  },
+  "blockMenu": {
+    "summarize": "AI Summarize",
+    "continueWriting": "AI Continue",
+    "improveText": "AI Improve"
+  },
+  "messages": {
+    "summaryGenerated": "Summary generated",
+    "continuationCompleted": "Continuation completed",
+    "textImproved": "Text improved",
+    "blockContentEmpty": "Block content is empty",
+    "mcpServerNotConfigured": "Please configure MCP server in settings first",
+    "settingsSaved": "Settings saved"
+  }
+}
