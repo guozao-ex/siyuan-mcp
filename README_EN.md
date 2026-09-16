@@ -6,7 +6,7 @@ English | [简体中文](./README.md)
 
 ## Features
 
-- 🔧 **72 MCP tools**: search, read, write, batch operations, navigation (backlinks / outline / tags / file tree), assets and system status
+- 🔧 **A complete MCP toolset**: search, read, write, batch operations, navigation (backlinks / outline / tags / file tree), assets and system status
 - 🛡️ **Risk grading**: every tool carries MCP-native `annotations` (read-only / destructive); destructive tools state in their description that the user must be asked first
 - 🤖 **AI integration**: connect any MCP-capable agent (Claude Desktop / Cursor / DSH, …) — **no LLM API key required**
 - 🔌 **Two transports**: stdio (local agents) and HTTP (custom REST plus the standard `POST /mcp`)
