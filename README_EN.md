@@ -6,13 +6,13 @@ English | [简体中文](./README.md)
 
 ## Features
 
-- 🔍 **Note Search**: Full-text search and block search
-- 📖 **Note Reading**: Read note content
-- ✍️ **Note Writing**: Create and modify notes
-- 🤖 **AI Integration**: Connect various AI agents via MCP protocol
-- 🎨 **Plugin UI**: User-friendly interface
-- 🌍 **Internationalization**: Chinese and English support
-- ⚡ **Performance**: Request caching and rate limiting
+- 🔧 **72 MCP tools**: search, read, write, batch operations, navigation (backlinks / outline / tags / file tree), assets and system status
+- 🛡️ **Risk grading**: every tool carries MCP-native `annotations` (read-only / destructive); destructive tools state in their description that the user must be asked first
+- 🤖 **AI integration**: connect any MCP-capable agent (Claude Desktop / Cursor / DSH, …) — **no LLM API key required**
+- 🔌 **Two transports**: stdio (local agents) and HTTP (custom REST plus the standard `POST /mcp`)
+- ⚙️ **Lightweight plugin**: the SiYuan plugin only configures the MCP server; it does not duplicate AI features
+- 🌍 **Internationalization**: plugin UI in Chinese and English
+- ⚡ **Performance & reliability**: request caching, retries, circuit breaker, rate limiting
 
 ## Project Structure
 
@@ -20,9 +20,11 @@ English | [简体中文](./README.md)
 .
 ├── mcp-server/          # MCP server (Node 18+ / TypeScript, HTTP mode defaults to port 3000)
 │   ├── src/
-│   │   ├── tools/       # MCP tool implementations
+│   │   ├── core/        # Infrastructure (config, logging, cache, retry, rate limit, index wait)
+│   │   ├── server/      # Transports (custom REST + standard Streamable HTTP /mcp)
 │   │   ├── siyuan/      # SiYuan API wrapper
-│   │   └── utils/       # Utilities
+│   │   ├── tools/       # MCP tool implementations and registry (destructive ones grouped)
+│   │   └── index.ts
 │   ├── tests/           # vitest tests
 │   └── package.json
 │
@@ -32,14 +34,12 @@ English | [简体中文](./README.md)
 │
 ├── siyuan-plugin/       # SiYuan plugin (Svelte 4 / Vite 5)
 │   ├── src/
-│   │   ├── components/  # UI components
-│   │   ├── api/         # API calls
+│   │   ├── components/  # Settings panel
+│   │   ├── api/         # MCP server client
 │   │   └── styles/      # Stylesheets
 │   └── package.json
 │
-├── scripts/             # Startup scripts
-│   ├── start-daemon.bat # Windows
-│   └── start-daemon.sh  # macOS / Linux
+├── scripts/             # Verification & deployment tooling (protocol checks, tool acceptance, plugin deploy/package, daemon launchers)
 │
 └── docs/                # User docs (guides/ how-to, reference/ API reference)
 ```
@@ -213,22 +213,6 @@ npm run build
 - Svelte 4.2+
 - Vite 5.4+
 - SiYuan SDK
-
-## Development Status
-
-Current version: v0.1.0
-
-- ✅ **Phase 1 — Project initialization & infrastructure**: done; both `mcp-server/` and `mcp-daemon/` have build output (`dist/`)
-- ✅ **Phase 2 — MCP server core**: done — `cd mcp-server && npx vitest run` reports **81 passed / 0 failed / 22 skipped**; stdio and HTTP share a single tool registry (**72 tools**, each verified by real invocation), and the HTTP side also exposes a standard MCP `POST /mcp` endpoint plus token auth
-- ✅ **Phase 3 — Plugin**: done — the build chain now works (it had never been built successfully before); the plugin was verified inside SiYuan for loading, a settings read/write round-trip and topbar icon rendering
-- ✅ **Phase 4 — Integration & optimization**: done — the daemon `mcp-daemon/` (control port 3001, including an installer), request retry / circuit breaker / rate limiting, enhanced logging and automatic `.env` loading. **The AI chat panel and the model-calling layer (`/api/chat`) were removed by decision**: the project's role is "MCP as the bridge between agents and SiYuan", so the whole chain **requires no LLM API key**
-- 🔄 **Phase 5 — Testing & documentation**: in progress
-- ⏳ **Phase 6 — Release preparation**: not started
-
-> This section was verified against the actual code and command output on 2026-09-16 and deliberately does **not** repeat the
-> "100% complete / all tests passing" claims found in the historical reports. The repository was being actively fixed while this
-> check was made, so the values above are snapshots and individual items may already have changed — re-run the commands for the
-> current state.
 
 ## FAQ
 

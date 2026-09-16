@@ -6,13 +6,13 @@
 
 ## 功能特性
 
-- 🔍 **笔记搜索**：支持全文搜索和块搜索
-- 📖 **笔记读取**：支持读取笔记内容
-- ✍️ **笔记写入**：支持创建和修改笔记
-- 🤖 **AI 集成**：通过 MCP 协议连接各类 AI Agent
-- 🎨 **插件 UI**：提供友好的交互界面
-- 🌍 **国际化**：支持中文和英文
-- ⚡ **性能优化**：请求缓存和速率限制
+- 🔧 **72 个 MCP 工具**：搜索、读取、写入、批量操作、导航（反向链接 / 大纲 / 标签 / 文件树）、资源与系统状态
+- 🛡️ **风险分级**：每个工具带 MCP 原生 `annotations`（只读 / 破坏性），危险操作在描述里明确要求先征得用户同意
+- 🤖 **AI 集成**：通过 MCP 协议连接各类 AI Agent（Claude Desktop / Cursor / DSH 等），**无需任何 LLM API Key**
+- 🔌 **双传输**：stdio（本地 Agent 直连）与 HTTP（自定义 REST + 标准 `POST /mcp`）
+- ⚙️ **插件轻量**：思源插件只做 MCP 服务器配置入口，不在插件内复制 AI 能力
+- 🌍 **国际化**：插件界面支持中文和英文
+- ⚡ **性能与可靠性**：请求缓存、重试、熔断、限流
 
 ## 项目结构
 
@@ -20,9 +20,11 @@
 .
 ├── mcp-server/          # MCP 服务器（Node 18+ / TypeScript，HTTP 模式默认端口 3000）
 │   ├── src/
-│   │   ├── tools/       # MCP 工具实现
+│   │   ├── core/        # 基础设施（配置、日志、缓存、重试、限流、索引等待）
+│   │   ├── server/      # 传输层（自定义 REST + 标准 Streamable HTTP /mcp）
 │   │   ├── siyuan/      # 思源 API 封装
-│   │   └── utils/       # 工具函数
+│   │   ├── tools/       # MCP 工具实现与注册表（危险操作单独分组）
+│   │   └── index.ts
 │   ├── tests/           # vitest 测试
 │   └── package.json
 │
@@ -32,14 +34,12 @@
 │
 ├── siyuan-plugin/       # 思源插件（Svelte 4 / Vite 5）
 │   ├── src/
-│   │   ├── components/  # UI 组件
-│   │   ├── api/         # API 调用
+│   │   ├── components/  # 设置面板
+│   │   ├── api/         # MCP 服务器客户端
 │   │   └── styles/      # 样式文件
 │   └── package.json
 │
-├── scripts/             # 启动脚本
-│   ├── start-daemon.bat # Windows
-│   └── start-daemon.sh  # macOS / Linux
+├── scripts/             # 验证与部署工具（协议校验、工具验收、插件部署/打包、守护启动）
 │
 └── docs/                # 用户文档（guides/ 使用指南、reference/ 参考手册）
 ```
@@ -258,20 +258,6 @@ node scripts/deploy-plugin.mjs --workspace="<思源工作空间路径>" --build
 - Svelte 4.2+
 - Vite 5.4+
 - SiYuan SDK
-
-## 开发状态
-
-当前版本：v0.1.0
-
-- ✅ **Phase 1 项目初始化与基础设施**：完成，`mcp-server/`、`mcp-daemon/` 均已生成构建产物（`dist/`）
-- ✅ **Phase 2 MCP 服务器核心开发**：完成 —— `cd mcp-server && npx vitest run` 实测 **81 通过 / 0 失败 / 22 跳过**；stdio 与 HTTP 两种传输共用同一份工具注册表（**72 个工具**，全部经真实调用逐个验收），HTTP 侧另提供标准 MCP `POST /mcp` 端点与 Token 认证
-- ✅ **Phase 3 思源插件开发**：完成 —— 构建链已打通（此前从未成功构建过），插件在思源内实测加载、设置面板读写闭环、顶栏图标渲染均正常
-- ✅ **Phase 4 集成与优化**：完成 —— 进程守护 `mcp-daemon/`（控制端口 3001，含 installer）、请求重试/熔断/限流、增强日志、`.env` 自动加载。**AI 对话面板与模型调用层（`/api/chat`）经决策后整体移除**：定位为「MCP 只做 Agent 与思源之间的桥，AI 能力交给外部 Agent」，因此整条链路**不需要任何 LLM API Key**
-- 🔄 **Phase 5 测试与文档**：进行中
-- ⏳ **Phase 6 发布准备**：未开始
-
-> 本节依据仓库实际代码与命令输出校对（2026-09-16），**不采用**历史报告中“100% 完成”“所有功能测试通过”的说法；
-> 上表为最近一次实测值，请以自己运行命令的输出为准。
 
 ## 常见问题
 
