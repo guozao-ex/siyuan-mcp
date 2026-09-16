@@ -97,12 +97,75 @@ import type {
   GetFileTreeResponse,
   GetAllReferencesResponse,
 } from './types.js';
-import { createCache, Cache } from '../utils/cache.js';
+import { createCache, Cache } from '../core/cache.js';
+import {
+  RetryHandler,
+  CircuitBreaker,
+  RequestStats,
+  ConcurrencyLimiter,
+  CircuitState
+} from '../core/retry.js';
+import { getLogger } from '../core/logger.js';
+
+/**
+ * 思源 API 请求错误。
+ *
+ * 设计意图：`message` 始终是**底层原因**（例如 "Connection failed"），
+ * 便于调用方做模式匹配与面向用户的展示；端点、请求 ID、熔断状态等
+ * 诊断信息通过结构化字段携带，需要时再读，不污染 message。
+ *
+ * 背景：旧实现把 `endpoint / circuit breaker state / request id` 拼进 message，
+ * 结果是调用方（以及 HTTP / MCP 客户端）拿到 4 行文本，
+ * getConnectionStatus() 返回的 error 字段也因此失真。
+ */
+export class SiYuanRequestError extends Error {
+  readonly endpoint: string;
+  readonly requestId: string;
+  readonly circuitBreakerState: CircuitState;
+  readonly latency: number;
+
+  constructor(
+    message: string,
+    details: {
+      endpoint: string;
+      requestId: string;
+      circuitBreakerState: CircuitState;
+      latency: number;
+      cause?: unknown;
+    }
+  ) {
+    super(message, { cause: details.cause });
+    this.name = 'SiYuanRequestError';
+    this.endpoint = details.endpoint;
+    this.requestId = details.requestId;
+    this.circuitBreakerState = details.circuitBreakerState;
+    this.latency = details.latency;
+  }
+}
+
+/**
+ * 沿 cause 链取最底层错误的消息，用于向用户展示**根因**。
+ * 例：重试包装后的 "Request failed after 4 attempts: X" -> "X"
+ */
+function rootCauseMessage(error: unknown): string {
+  let current: any = error;
+  let depth = 0;
+  while (current && current.cause && depth < 10) {
+    current = current.cause;
+    depth += 1;
+  }
+  return current instanceof Error ? current.message : String(current);
+}
 
 export class SiYuanClient {
   private baseUrl: string;
   private token: string;
   private cache: Cache;
+  private retryHandler: RetryHandler;
+  private circuitBreaker: CircuitBreaker;
+  private stats: RequestStats;
+  private rateLimiter: ConcurrencyLimiter;
+  private logger = getLogger();
 
   constructor(baseUrl?: string, token?: string) {
     this.baseUrl = baseUrl || process.env.SIYUAN_API_URL || 'http://127.0.0.1:6806';
@@ -118,12 +181,97 @@ export class SiYuanClient {
       ttl: 5 * 60 * 1000, // 5 minutes
       maxSize: 100,
     });
+
+    // Initialize retry handler
+    this.retryHandler = new RetryHandler({
+      maxRetries: 3,
+      backoffMs: 1000,
+      backoffMultiplier: 2,
+      timeout: 10000,
+      retryableErrors: ['ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', 'fetch failed', 'network']
+    });
+
+    // Initialize circuit breaker
+    this.circuitBreaker = new CircuitBreaker({
+      failureThreshold: 5,    // 5次失败后熔断
+      successThreshold: 2,    // 2次成功后恢复
+      timeout: 60000          // 熔断1分钟
+    });
+
+    // Initialize stats
+    this.stats = new RequestStats();
+
+    // Initialize rate limiter
+    this.rateLimiter = new ConcurrencyLimiter({
+      maxConcurrent: 10,      // 最多10个并发
+      minTime: 50,            // 每个请求最少间隔50ms
+      reservoir: 100,         // 初始容量
+      reservoirRefreshAmount: 100,
+      reservoirRefreshInterval: 1000 // 每秒恢复
+    });
   }
 
   /**
-   * Generic request method
+   * Generic request method with retry and circuit breaker
    */
   private async request<T>(endpoint: string, data?: any): Promise<T> {
+    const startTime = Date.now();
+    const requestId = Math.random().toString(36).substring(7);
+
+    // 记录请求开始
+    this.logger.debug(`API Request Start: ${endpoint}`, { requestId, data });
+
+    try {
+      // 通过速率限制器执行
+      const result = await this.rateLimiter.schedule(async () => {
+        // 通过熔断器执行
+        return await this.circuitBreaker.execute(async () => {
+          // 通过重试处理器执行
+          return await this.retryHandler.executeWithRetry(async () => {
+            return await this.executeRequest<T>(endpoint, data);
+          });
+        });
+      });
+
+      // 记录成功
+      const latency = Date.now() - startTime;
+      this.logger.logApiCall(endpoint, latency, true);
+
+      return result;
+    } catch (error: any) {
+      const latency = Date.now() - startTime;
+
+      // 记录错误
+      this.stats.recordError(endpoint, error);
+      this.logger.logApiCall(endpoint, latency, false, error.message);
+      this.logger.error(`API request failed: ${endpoint}`, {
+        requestId,
+        error: error.message,
+        stack: error.stack,
+        circuitBreakerState: this.circuitBreaker.getState(),
+        duration: latency
+      });
+
+      // 保持 message 为底层原因，诊断上下文改为结构化携带。
+      // 这样调用方（含 HTTP / MCP 客户端）拿到的仍是可读的根因，
+      // 需要排查时再读 endpoint / requestId / circuitBreakerState 字段。
+      throw new SiYuanRequestError(error.message, {
+        endpoint,
+        requestId,
+        circuitBreakerState: this.circuitBreaker.getState(),
+        latency,
+        cause: error,
+      });
+    } finally {
+      const latency = Date.now() - startTime;
+      this.stats.recordRequest(latency);
+    }
+  }
+
+  /**
+   * Execute actual HTTP request
+   */
+  private async executeRequest<T>(endpoint: string, data?: any): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
     const headers: Record<string, string> = {
@@ -134,40 +282,69 @@ export class SiYuanClient {
       headers['Authorization'] = `Token ${this.token}`;
     }
 
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(data || {}, (key, value) => {
-          // Ensure strings are properly encoded
-          if (typeof value === 'string') {
-            return value;
-          }
-          return value;
-        }),
-      });
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data || {}),
+    });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = (await response.json()) as BaseResponse<T>;
-
-      if (result.code !== 0) {
-        const error = new Error(result.msg) as SiYuanApiError;
-        error.name = 'SiYuanApiError';
-        error.code = result.code;
-        error.details = result.data;
-        throw error;
-      }
-
-      return result.data;
-    } catch (error) {
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error(`Request failed: ${String(error)}`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+
+    // 先取原始文本再解析。
+    // 原因：思源个别接口在「无结果」时会返回**空 body**（实测 /api/ref/getBackmention
+    // 与 /api/ref/getAllReferences 都是这样），直接 response.json() 会抛
+    // "Unexpected end of JSON input"。空响应不是错误，按"无数据"处理。
+    const raw = await response.text();
+    if (!raw || !raw.trim()) {
+      return null as unknown as T;
+    }
+
+    let result: BaseResponse<T>;
+    try {
+      result = JSON.parse(raw) as BaseResponse<T>;
+    } catch {
+      throw new Error(
+        `SiYuan API returned a non-JSON response for ${endpoint}: ${raw.slice(0, 120)}`
+      );
+    }
+
+    if (result.code !== 0) {
+      const error = new Error(result.msg) as SiYuanApiError;
+      error.name = 'SiYuanApiError';
+      error.code = result.code;
+      error.details = result.data;
+      throw error;
+    }
+
+    return result.data;
+  }
+
+  /**
+   * Get client statistics
+   */
+  getStats() {
+    return {
+      ...this.stats.getStats(),
+      circuitBreaker: this.circuitBreaker.getStats(),
+      rateLimiter: this.rateLimiter.getStats(),
+      cache: this.cache.stats()
+    };
+  }
+
+  /**
+   * Reset circuit breaker (for recovery)
+   */
+  resetCircuitBreaker() {
+    this.circuitBreaker.reset();
+  }
+
+  /**
+   * Get circuit breaker state
+   */
+  getCircuitBreakerState(): CircuitState {
+    return this.circuitBreaker.getState();
   }
 
   // ==================== System APIs ====================
@@ -299,9 +476,12 @@ export class SiYuanClient {
 
   /**
    * Insert a new block
+   *
+   * 注意返回的是**数组**（思源把 data 包了一层），新块 ID 在
+   * `result[0].doOperations[0].id`。
    */
-  async insertBlock(request: InsertBlockRequest): Promise<InsertBlockResponse> {
-    return this.request<InsertBlockResponse>('/api/block/insertBlock', request);
+  async insertBlock(request: InsertBlockRequest): Promise<InsertBlockResponse[]> {
+    return this.request<InsertBlockResponse[]>('/api/block/insertBlock', request);
   }
 
   /**
@@ -328,11 +508,12 @@ export class SiYuanClient {
 
   /**
    * Append block to parent
+   * 返回数组：新块 ID 在 `result[0].doOperations[0].id`
    */
   async appendBlock(
     parentID: string,
     markdown: string
-  ): Promise<InsertBlockResponse> {
+  ): Promise<InsertBlockResponse[]> {
     return this.insertBlock({
       dataType: 'markdown',
       data: markdown,
@@ -342,11 +523,12 @@ export class SiYuanClient {
 
   /**
    * Prepend block to parent
+   * 返回数组：新块 ID 在 `result[0].doOperations[0].id`
    */
   async prependBlock(
     parentID: string,
     markdown: string
-  ): Promise<InsertBlockResponse> {
+  ): Promise<InsertBlockResponse[]> {
     const children = await this.getDocChildBlocks(parentID);
     const firstChildID = children[0]?.id;
 
@@ -385,13 +567,12 @@ export class SiYuanClient {
 
   /**
    * Rename document
+   *
+   * 注意：思源这个接口返回 `data: null`，所以返回类型是 void ——
+   * 不要试图读取响应内容（曾经因此抛 "Cannot read properties of null"）。
    */
-  async renameDoc(
-    notebook: string,
-    path: string,
-    title: string
-  ): Promise<RenameDocResponse> {
-    return this.request<RenameDocResponse>('/api/filetree/renameDoc', {
+  async renameDoc(notebook: string, path: string, title: string): Promise<void> {
+    await this.request<void>('/api/filetree/renameDoc', {
       notebook,
       path,
       title,
@@ -400,9 +581,11 @@ export class SiYuanClient {
 
   /**
    * Remove document
+   *
+   * 同 renameDoc：返回 `data: null`。
    */
-  async removeDoc(notebook: string, path: string): Promise<RemoveDocResponse> {
-    return this.request<RemoveDocResponse>('/api/filetree/removeDoc', {
+  async removeDoc(notebook: string, path: string): Promise<void> {
+    await this.request<void>('/api/filetree/removeDoc', {
       notebook,
       path,
     });
@@ -452,9 +635,12 @@ export class SiYuanClient {
       const version = await this.getVersion();
       return { connected: true, version };
     } catch (error) {
+      // 展示根因：经过重试包装后 message 会是
+      // "Request failed after N attempts: <原因>"，这里沿 cause 链取到底层原因，
+      // 让调用方（与最终用户）看到的是 "Connection failed" 而不是一长串包装文本。
       return {
         connected: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: rootCauseMessage(error),
       };
     }
   }
@@ -463,9 +649,52 @@ export class SiYuanClient {
 
   /**
    * Upload asset files
+   *
+   * ⚠️ 思源的 `/api/asset/upload` 要求 **multipart/form-data**，不能走通用的
+   * request()（后者固定发 JSON，实测会返回
+   * "request Content-Type isn't multipart/form-data"）。这里单独实现，
+   * 复用同一套 baseUrl 与 token。
    */
   async uploadAsset(request: UploadAssetRequest): Promise<UploadAssetResponse> {
-    return this.request<UploadAssetResponse>('/api/asset/upload', request);
+    const url = `${this.baseUrl}/api/asset/upload`;
+
+    const form = new FormData();
+    form.append('assetsDirPath', request.assetsDirPath);
+
+    for (const file of request.files) {
+      // data 允许是 base64（含 data: 前缀）或纯文本。
+      // 注意用具体类型而非 DOM 的 BlobPart —— 本项目的 tsconfig 不含 DOM lib。
+      let payload: string | Uint8Array = file.data as unknown as string;
+      if (typeof file.data === 'string' && file.data.startsWith('data:')) {
+        const base64 = file.data.split(',')[1] || '';
+        payload = new Uint8Array(Buffer.from(base64, 'base64'));
+      }
+      form.append('file[]', new Blob([payload]), file.name);
+    }
+
+    const headers: Record<string, string> = {};
+    if (this.token) {
+      headers['Authorization'] = `Token ${this.token}`;
+    }
+
+    const response = await fetch(url, { method: 'POST', headers, body: form });
+    const raw = await response.text();
+
+    if (!raw || !raw.trim()) {
+      return { errFiles: [], succMap: {} };
+    }
+
+    const result = JSON.parse(raw) as {
+      code: number;
+      msg: string;
+      data: UploadAssetResponse;
+    };
+
+    if (result.code !== 0) {
+      throw new Error(result.msg || 'Asset upload failed');
+    }
+
+    return result.data;
   }
 
   // ==================== Export APIs ====================
@@ -539,8 +768,7 @@ export class SiYuanClient {
    * Get human-readable path by ID
    */
   async getHPathByID(id: string): Promise<string> {
-    const response = await this.request<GetHPathByIDResponse>('/api/filetree/getHPathByID', { id });
-    return response.hPath;
+    return this.request<string>('/api/filetree/getHPathByID', { id });
   }
 
   // ==================== Reference APIs ====================
@@ -568,7 +796,9 @@ export class SiYuanClient {
    * Get document outline
    */
   async getDocOutline(id: string): Promise<GetDocOutlineResponse> {
-    return this.request<GetDocOutlineResponse>('/api/outline/getDocOutline', { id });
+    const raw = await this.request<any>('/api/outline/getDocOutline', { id });
+    const blocks = Array.isArray(raw) ? raw : raw?.blocks ?? [];
+    return { blocks };
   }
 
   // ==================== Tag APIs ====================
@@ -616,8 +846,10 @@ export class SiYuanClient {
    * Resolve asset path
    */
   async resolveAssetPath(path: string): Promise<string> {
-    const response = await this.request<ResolveAssetPathResponse>('/api/asset/resolveAssetPath', { path });
-    return response.path;
+    // ⚠️ 思源这个接口的 data **就是路径字符串本身**（例如
+    // "C:\\...\\data\\assets\\foo.png"），不是 { path } 对象。
+    // 曾经按 ResolveAssetPathResponse.path 取值，结果永远是 undefined。
+    return this.request<string>('/api/asset/resolveAssetPath', { path });
   }
 
   // ==================== Template APIs ====================
@@ -731,7 +963,9 @@ export class SiYuanClient {
    * Get bookmarks
    */
   async getBookmark(): Promise<GetBookmarkResponse> {
-    return this.request<GetBookmarkResponse>('/api/bookmark/getBookmark', {});
+    const raw = await this.request<any>('/api/bookmark/getBookmark', {});
+    const bookmarks = Array.isArray(raw) ? raw : raw?.bookmarks ?? [];
+    return { bookmarks };
   }
 
   /**
@@ -807,11 +1041,7 @@ export class SiYuanClient {
    * Get human-readable path by path
    */
   async getHPathByPath(notebook: string, path: string): Promise<string> {
-    const response = await this.request<GetHPathByPathResponse>('/api/filetree/getHPathByPath', {
-      notebook,
-      path,
-    });
-    return response.hPath;
+    return this.request<string>('/api/filetree/getHPathByPath', { notebook, path });
   }
 
   // ==================== History APIs ====================
@@ -902,14 +1132,18 @@ export class SiYuanClient {
    * Get riff due cards (spaced repetition)
    */
   async getRiffDueCards(): Promise<GetRiffDueCardsResponse> {
-    return this.request<GetRiffDueCardsResponse>('/api/riff/getRiffDueCards', {});
+    const raw = await this.request<any>('/api/riff/getRiffDueCards', {});
+    const cards = Array.isArray(raw) ? raw : raw?.cards ?? [];
+    return { cards };
   }
 
   /**
    * Get block breadcrumb
    */
   async getBlockBreadcrumb(id: string): Promise<GetBlockBreadcrumbResponse> {
-    return this.request<GetBlockBreadcrumbResponse>('/api/block/getBlockBreadcrumb', { id });
+    const raw = await this.request<any>('/api/block/getBlockBreadcrumb', { id });
+    const breadcrumb = Array.isArray(raw) ? raw : raw?.breadcrumb ?? [];
+    return { breadcrumb };
   }
 
   /**

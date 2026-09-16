@@ -37,6 +37,11 @@ MCP_PORT=3000
 
 # HTTP server host (default: 127.0.0.1)
 MCP_HOST=127.0.0.1
+
+# Shared auth token (optional, but strongly recommended)
+# When set, every endpoint except GET /health requires:
+#   Authorization: Bearer <MCP_AUTH_TOKEN>
+MCP_AUTH_TOKEN=
 ```
 
 ## Usage Examples

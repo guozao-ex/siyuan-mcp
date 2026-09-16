@@ -5,6 +5,11 @@
 export interface McpClientConfig {
   serverUrl: string;
   timeout?: number;
+  /**
+   * 访问 MCP 服务器的 Token。
+   * 服务器用 MCP_AUTH_TOKEN 开启认证时必填，留空表示服务器未启用认证。
+   */
+  token?: string;
 }
 
 export interface McpToolCall {
@@ -23,10 +28,23 @@ export interface McpToolResult {
 export class McpClient {
   private serverUrl: string;
   private timeout: number;
+  private token: string;
 
   constructor(config: McpClientConfig) {
     this.serverUrl = config.serverUrl.replace(/\/$/, '');
     this.timeout = config.timeout || 30000;
+    this.token = (config.token || '').trim();
+  }
+
+  /**
+   * 构造请求头。服务器启用认证时附带 `Authorization: Bearer <token>`。
+   */
+  private buildHeaders(extra: Record<string, string> = {}): Record<string, string> {
+    const headers: Record<string, string> = { ...extra };
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+    return headers;
   }
 
   /**
@@ -36,15 +54,17 @@ export class McpClient {
     try {
       const response = await fetch(`${this.serverUrl}/tools/call`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.buildHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           name,
           arguments: args,
         }),
         signal: AbortSignal.timeout(this.timeout),
       });
+
+      if (response.status === 401) {
+        throw new Error('未授权：MCP 服务器已开启认证，请在插件设置中填写正确的 Token');
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -165,8 +185,11 @@ export class McpClient {
     try {
       const response = await fetch(`${this.serverUrl}/health`, {
         method: 'GET',
+        headers: this.buildHeaders(),
         signal: AbortSignal.timeout(5000),
       });
+      // /health 是免认证的，所以 200 只说明服务器活着；
+      // Token 是否正确要等真正调用工具时才会暴露（届时返回 401）。
       return response.ok;
     } catch (error) {
       return false;

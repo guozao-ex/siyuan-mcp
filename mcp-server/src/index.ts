@@ -4,7 +4,16 @@
  * SiYuan MCP Server
  *
  * Provides MCP (Model Context Protocol) tools for interacting with SiYuan Note.
+ *
+ * 工具定义已抽取到 src/tools/registry.ts 作为**唯一数据源**：
+ * stdio 与 http 两种传输模式共用同一份定义，避免再次出现工具集不同步
+ * （此前 GET /tools 与 handleToolCall 都少了 4 个 batch 工具）。
  */
+
+// ⚠️ 必须是第一条 import：该模块在被求值时就加载 .env（副作用模块）。
+// 若放在后面，enhanced-logger / config 等模块会先在模块求值阶段读走 process.env，
+// 导致 .env 里的 LOG_LEVEL、MCP_AUTH_TOKEN、LLM_API_KEY 等失效。
+import './core/env-file.js';
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -14,34 +23,33 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { createClient, SiYuanClient } from './siyuan/api.js';
-import { searchNotes, searchBlocks, listNotebooks } from './tools/search.js';
-import { readBlock, readDocument, readByPath } from './tools/read.js';
-import {
-  createDocument,
-  updateBlock,
-  appendBlock,
-  insertBlockAfter,
-  deleteBlock,
-  renameDocument,
-  deleteDocument,
-  appendToDocument,
-} from './tools/write.js';
-import { createHttpServer } from './utils/http-server.js';
-import { loadConfig, validateConfig, printConfig } from './utils/config.js';
-import { logger } from './utils/logger.js';
+import { TOOL_SCHEMAS, invokeTool } from './tools/registry.js';
+import { createHttpServer } from './server/http.js';
+import { loadConfig, validateConfig, printConfig } from './core/config.js';
+import { createLogger } from './core/logger.js';
+
+// Initialize logger
+const logger = createLogger({
+  logDir: process.env.LOG_DIR || './logs',
+  level: (process.env.LOG_LEVEL as any) || 'info',
+  console: process.env.NODE_ENV !== 'production'
+});
+
+logger.info('Starting SiYuan MCP Server...');
 
 // Load and validate configuration
 const config = loadConfig();
 const configErrors = validateConfig(config);
 
 if (configErrors.length > 0) {
-  console.error('Configuration errors:');
-  configErrors.forEach((error) => console.error(`  - ${error}`));
+  logger.error('Configuration errors detected', { errors: configErrors });
+  configErrors.forEach((error) => logger.error(`  - ${error}`));
   process.exit(1);
 }
 
 // Print configuration summary
 printConfig(config);
+logger.info('Configuration loaded successfully');
 
 // Get transport mode from configuration
 const TRANSPORT_MODE = config.transportMode;
@@ -67,270 +75,28 @@ const server = new Server(
   }
 );
 
-// ==================== Tool Definitions ====================
-
-const TOOLS = [
-  {
-    name: 'search_notes',
-    description: 'Search notes and blocks in SiYuan by keyword',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        query: {
-          type: 'string',
-          description: 'Search query keyword',
-        },
-        notebooks: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Optional: Filter by notebook IDs',
-        },
-        page: {
-          type: 'number',
-          description: 'Page number (default: 1)',
-        },
-        pageSize: {
-          type: 'number',
-          description: 'Results per page (default: 20, max: 100)',
-        },
-      },
-      required: ['query'],
-    },
-  },
-  {
-    name: 'list_notebooks',
-    description: 'List all notebooks in SiYuan',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
-  },
-  {
-    name: 'read_block',
-    description: 'Read a single block by ID',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        id: {
-          type: 'string',
-          description: 'Block ID',
-        },
-        includeAttributes: {
-          type: 'boolean',
-          description: 'Include block attributes (default: false)',
-        },
-      },
-      required: ['id'],
-    },
-  },
-  {
-    name: 'read_document',
-    description: 'Read a complete document (note) by ID',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        id: {
-          type: 'string',
-          description: 'Document ID',
-        },
-        includeChildren: {
-          type: 'boolean',
-          description: 'Include all child blocks (default: true)',
-        },
-      },
-      required: ['id'],
-    },
-  },
-  {
-    name: 'create_document',
-    description: 'Create a new document in SiYuan',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        notebook: {
-          type: 'string',
-          description: 'Notebook ID',
-        },
-        path: {
-          type: 'string',
-          description: 'Document path (e.g., /folder/document.sy)',
-        },
-        title: {
-          type: 'string',
-          description: 'Document title',
-        },
-        content: {
-          type: 'string',
-          description: 'Document content in markdown (optional)',
-        },
-      },
-      required: ['notebook', 'path', 'title'],
-    },
-  },
-  {
-    name: 'update_block',
-    description: 'Update an existing block content',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        id: {
-          type: 'string',
-          description: 'Block ID to update',
-        },
-        content: {
-          type: 'string',
-          description: 'New content in markdown',
-        },
-      },
-      required: ['id', 'content'],
-    },
-  },
-  {
-    name: 'append_block',
-    description: 'Append content to a block (add as child)',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        parentId: {
-          type: 'string',
-          description: 'Parent block ID',
-        },
-        content: {
-          type: 'string',
-          description: 'Content to append in markdown',
-        },
-      },
-      required: ['parentId', 'content'],
-    },
-  },
-  {
-    name: 'delete_block',
-    description: 'Delete a block by ID',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        id: {
-          type: 'string',
-          description: 'Block ID to delete',
-        },
-      },
-      required: ['id'],
-    },
-  },
-];
-
 // ==================== Request Handlers ====================
 
-// List available tools
+// List available tools —— 直接来自注册表
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return { tools: TOOLS };
+  return { tools: TOOL_SCHEMAS };
 });
 
-// Handle tool calls
+// Handle tool calls —— 统一分派到注册表
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
-    switch (name) {
-      case 'search_notes': {
-        const result = await searchNotes(siyuanClient, args as any);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      }
+    const result = await invokeTool(siyuanClient, name, (args as Record<string, any>) ?? {});
 
-      case 'list_notebooks': {
-        const result = await listNotebooks(siyuanClient);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'read_block': {
-        const result = await readBlock(siyuanClient, args as any);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'read_document': {
-        const result = await readDocument(siyuanClient, args as any);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'create_document': {
-        const result = await createDocument(siyuanClient, args as any);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'update_block': {
-        const result = await updateBlock(siyuanClient, args as any);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'append_block': {
-        const result = await appendBlock(siyuanClient, args as any);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'delete_block': {
-        const result = await deleteBlock(siyuanClient, args as any);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      }
-
-      default:
-        throw new Error(`Unknown tool: ${name}`);
-    }
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
@@ -377,6 +143,7 @@ async function main() {
       port: HTTP_PORT,
       host: HTTP_HOST,
       cors: config.enableCors,
+      authToken: config.authToken,
     });
     logger.info(`SiYuan MCP server running on http://${HTTP_HOST}:${HTTP_PORT}`);
   } else {

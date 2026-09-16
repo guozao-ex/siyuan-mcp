@@ -14,6 +14,42 @@ English | [简体中文](./README.md)
 - 🌍 **Internationalization**: Chinese and English support
 - ⚡ **Performance**: Request caching and rate limiting
 
+## Project Structure
+
+```
+.
+├── mcp-server/          # MCP server (Node 18+ / TypeScript, HTTP mode defaults to port 3000)
+│   ├── src/
+│   │   ├── tools/       # MCP tool implementations
+│   │   ├── siyuan/      # SiYuan API wrapper
+│   │   └── utils/       # Utilities
+│   ├── tests/           # vitest tests
+│   └── package.json
+│
+├── mcp-daemon/          # Process daemon: supervises the mcp-server process, HTTP control API on port 3001
+│   ├── src/             # MCPDaemon + DaemonControlServer
+│   └── package.json
+│
+├── siyuan-plugin/       # SiYuan plugin (Svelte 4 / Vite 5)
+│   ├── src/
+│   │   ├── components/  # UI components
+│   │   ├── api/         # API calls
+│   │   └── styles/      # Stylesheets
+│   └── package.json
+│
+├── scripts/             # Startup scripts
+│   ├── start-daemon.bat # Windows
+│   └── start-daemon.sh  # macOS / Linux
+│
+└── docs/                # User docs (guides/ how-to, reference/ API reference)
+```
+
+`mcp-daemon/` is the **process daemon** for the MCP server: it starts / stops / restarts the `mcp-server`
+child process, maintains the PID file and logs, and exposes an HTTP control API on port **3001**
+(`POST /daemon/start`, `POST /daemon/stop`, `POST /daemon/restart`, `GET /daemon/status`, `GET /daemon/health`).
+`scripts/start-daemon.bat` / `scripts/start-daemon.sh` are convenience launchers for it.
+The MCP server itself listens on port **3000** in HTTP mode.
+
 ## Quick Start
 
 ### 1. MCP Server
@@ -106,19 +142,63 @@ Add to Claude Desktop config:
 
 ### SiYuan Plugin
 
-1. Click AI icon in topbar to open chat panel
-2. Right-click on blocks for AI operations:
-   - Summarize content
-   - Continue writing
-   - Improve text
-3. Configure MCP server URL in settings
+The plugin is a **configuration entry point only**: it ships no AI capabilities at all —
+neither a chat UI nor block-level AI actions. Everything AI-related is delegated to
+external agents (DSH / Claude Desktop / Cursor) over MCP.
+
+Usage is a single step:
+
+1. Click the topbar icon (or search "settings" in the command palette) to configure
+   the MCP server URL and token
+2. Connect that MCP server from your own AI client, then use it to read and write notes
+
+> Why: a dedicated agent already covers chatting and writing assistance. Bundling a
+> second copy inside the plugin adds maintenance surface and forces users to configure
+> an extra LLM key. **The whole chain now needs no LLM API key at all** — MCP simply
+> carries data between the agent and SiYuan.
+
+## Development
+
+### Running Tests
+
+```bash
+cd mcp-server
+npm test                # Run all tests
+npm run test:watch      # Watch mode
+npm run test:coverage   # Coverage report
+```
+
+### Code Style
+
+Code style is governed by two config files at the repository root:
+
+- `.eslintrc.cjs` — ESLint (`eslint:recommended` + `@typescript-eslint/recommended`)
+- `.prettierrc` — Prettier (`semi: true`, `singleQuote: true`, `tabWidth: 2`, `printWidth: 100`, ...)
+
+**Note: no package wires up `lint` / `lint:fix` / `format` scripts yet, and neither eslint nor prettier
+is listed as a dependency of any package, so `npm run lint` and `npm run format` are not available.**
+Until those scripts exist, follow the two config files manually.
+
+### Build
+
+```bash
+# MCP server
+cd mcp-server
+npm run build
+
+# SiYuan plugin
+cd siyuan-plugin
+npm run build
+```
 
 ## Documentation
 
-- [Development Guide](./DEVELOPMENT.md)
+- [Quick Start](./docs/guides/QUICKSTART.md)
+- [Examples](./docs/guides/EXAMPLES.md)
+- [Testing Guide](./docs/guides/TESTING_GUIDE.md)
+- [API Reference](./docs/reference/API.md)
 - [Configuration Guide](./mcp-server/CONFIG.md)
-- [Testing Guide](./mcp-server/TESTING.md)
-- [Project Plan](./PROJECT_PLAN.md)
+- [MCP Server Testing](./mcp-server/TESTING.md)
 
 ## Tech Stack
 
@@ -138,14 +218,17 @@ Add to Claude Desktop config:
 
 Current version: v0.1.0
 
-- ✅ Phase 1: Project initialization
-- ✅ Phase 2: MCP server core
-- ✅ Phase 3: Plugin UI
-- ✅ Phase 4: Integration & optimization
-- 🔄 Phase 5: Testing & documentation
-- ⏳ Phase 6: Release preparation
+- ✅ **Phase 1 — Project initialization & infrastructure**: done; both `mcp-server/` and `mcp-daemon/` have build output (`dist/`)
+- ✅ **Phase 2 — MCP server core**: done — `cd mcp-server && npx vitest run` reports **81 passed / 0 failed / 22 skipped**; stdio and HTTP share a single tool registry (**72 tools**, each verified by real invocation), and the HTTP side also exposes a standard MCP `POST /mcp` endpoint plus token auth
+- ✅ **Phase 3 — Plugin**: done — the build chain now works (it had never been built successfully before); the plugin was verified inside SiYuan for loading, a settings read/write round-trip and topbar icon rendering
+- ✅ **Phase 4 — Integration & optimization**: done — the daemon `mcp-daemon/` (control port 3001, including an installer), request retry / circuit breaker / rate limiting, enhanced logging and automatic `.env` loading. **The AI chat panel and the model-calling layer (`/api/chat`) were removed by decision**: the project's role is "MCP as the bridge between agents and SiYuan", so the whole chain **requires no LLM API key**
+- 🔄 **Phase 5 — Testing & documentation**: in progress
+- ⏳ **Phase 6 — Release preparation**: not started
 
-See [PROJECT_PLAN.md](./PROJECT_PLAN.md) for details.
+> This section was verified against the actual code and command output on 2026-09-16 and deliberately does **not** repeat the
+> "100% complete / all tests passing" claims found in the historical reports. The repository was being actively fixed while this
+> check was made, so the values above are snapshots and individual items may already have changed — re-run the commands for the
+> current state.
 
 ## FAQ
 

@@ -38,6 +38,7 @@ describe('SiYuanClient', () => {
 
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
+        text: async () => JSON.stringify(mockResponse),
         json: async () => mockResponse,
       });
 
@@ -64,17 +65,28 @@ describe('SiYuanClient', () => {
 
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
+        text: async () => JSON.stringify(mockResponse),
         json: async () => mockResponse,
       });
 
       await expect(client.getVersion()).rejects.toThrow('API Error');
     });
 
-    it('should handle network errors', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Network error'));
+    it(
+      'should handle network errors',
+      async () => {
+        // 必须用 mockRejectedValue 而不是 mockRejectedValueOnce：
+        // 'Network error' 命中重试白名单（含 "network"），实现会重试多次，
+        // 只 mock 一次的话第二次 fetch 会返回 undefined，
+        // 报错就退化成 "Cannot read properties of undefined (reading 'ok')"。
+        (global.fetch as any).mockRejectedValue(new Error('Network error'));
 
-      await expect(client.getVersion()).rejects.toThrow('Network error');
-    });
+        await expect(client.getVersion()).rejects.toThrow('Network error');
+      },
+      // 该用例要跑完 RetryHandler 的退避链（约 1s + 2s + 4s），
+      // 超过 vitest 默认的 5s 用例超时，因此显式放宽。
+      20000
+    );
   });
 
   describe('listNotebooks', () => {
@@ -92,6 +104,7 @@ describe('SiYuanClient', () => {
 
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
+        text: async () => JSON.stringify(mockResponse),
         json: async () => mockResponse,
       });
 
@@ -109,6 +122,7 @@ describe('SiYuanClient', () => {
 
       (global.fetch as any).mockResolvedValue({
         ok: true,
+        text: async () => JSON.stringify(mockResponse),
         json: async () => mockResponse,
       });
 
@@ -124,30 +138,36 @@ describe('SiYuanClient', () => {
 
   describe('searchBlocks', () => {
     it('should search blocks with query', async () => {
-      const mockResponse = {
-        code: 0,
-        msg: '',
-        data: {
-          blocks: [
-            {
-              id: 'block1',
-              content: 'Test content',
-              type: 'p',
-              box: 'notebook1',
-              path: '/test.sy',
-              hpath: '/test',
-            },
-          ],
-          matchedBlockCount: 1,
-          matchedRootCount: 1,
-          pageCount: 1,
+      // 注意：searchBlocks 的实现已从「思源 search API」改为「SQL 查询」
+      // （见 src/siyuan/api.ts 的 searchBlocks），因为 search API 会返回空结果。
+      // 现在的调用序列是两次 /api/query/sql：
+      //   1) SELECT * FROM blocks WHERE ... LIMIT/OFFSET -> data 为记录数组
+      //   2) SELECT COUNT(*) AS count FROM blocks WHERE ... -> data 为 [{ count }]
+      const rows = [
+        {
+          id: 'block1',
+          content: 'Test content',
+          type: 'p',
+          box: 'notebook1',
+          path: '/test.sy',
+          hpath: '/test',
+          root_id: 'root1',
+          created: '20240101000000',
+          updated: '20240101000000',
         },
-      };
+      ];
 
-      (global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
+      (global.fetch as any)
+        .mockResolvedValueOnce({
+          ok: true,
+          text: async () => JSON.stringify(({ code: 0, msg: '', data: rows })),
+          json: async () => ({ code: 0, msg: '', data: rows }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: async () => JSON.stringify(({ code: 0, msg: '', data: [{ count: 1 }] })),
+          json: async () => ({ code: 0, msg: '', data: [{ count: 1 }] }),
+        });
 
       const result = await client.searchBlocks({
         query: 'test',
@@ -157,6 +177,54 @@ describe('SiYuanClient', () => {
       expect(result.blocks).toHaveLength(1);
       expect(result.blocks[0].content).toBe('Test content');
       expect(result.matchedBlockCount).toBe(1);
+      expect(result.pageCount).toBe(1);
+
+      // 断言确实以 SQL 形式发起，并带上了关键字过滤
+      const firstBody = JSON.parse((global.fetch as any).mock.calls[0][1].body);
+      expect(firstBody.stmt).toContain("content LIKE '%test%'");
+      expect(firstBody.stmt).toContain('LIMIT 20 OFFSET 0');
+    });
+
+    it('should include notebook filter in the SQL statement', async () => {
+      (global.fetch as any)
+        .mockResolvedValueOnce({
+          ok: true,
+          text: async () => JSON.stringify(({ code: 0, msg: '', data: [] })),
+          json: async () => ({ code: 0, msg: '', data: [] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: async () => JSON.stringify(({ code: 0, msg: '', data: [{ count: 0 }] })),
+          json: async () => ({ code: 0, msg: '', data: [{ count: 0 }] }),
+        });
+
+      await client.searchBlocks({
+        query: 'test',
+        method: 0,
+        boxes: ['notebook1', 'notebook2'],
+      });
+
+      const firstBody = JSON.parse((global.fetch as any).mock.calls[0][1].body);
+      expect(firstBody.stmt).toContain("box IN ('notebook1','notebook2')");
+    });
+
+    it('should escape single quotes in the query to avoid breaking the SQL', async () => {
+      (global.fetch as any)
+        .mockResolvedValueOnce({
+          ok: true,
+          text: async () => JSON.stringify(({ code: 0, msg: '', data: [] })),
+          json: async () => ({ code: 0, msg: '', data: [] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: async () => JSON.stringify(({ code: 0, msg: '', data: [{ count: 0 }] })),
+          json: async () => ({ code: 0, msg: '', data: [{ count: 0 }] }),
+        });
+
+      await client.searchBlocks({ query: "it's", method: 0 });
+
+      const firstBody = JSON.parse((global.fetch as any).mock.calls[0][1].body);
+      expect(firstBody.stmt).toContain("content LIKE '%it''s%'");
     });
   });
 
@@ -173,6 +241,7 @@ describe('SiYuanClient', () => {
 
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
+        text: async () => JSON.stringify(mockResponse),
         json: async () => mockResponse,
       });
 
@@ -190,6 +259,7 @@ describe('SiYuanClient', () => {
 
       (global.fetch as any).mockResolvedValue({
         ok: true,
+        text: async () => JSON.stringify(mockResponse),
         json: async () => mockResponse,
       });
 
@@ -215,6 +285,7 @@ describe('SiYuanClient', () => {
 
       (global.fetch as any).mockResolvedValue({
         ok: true,
+        text: async () => JSON.stringify(mockResponse),
         json: async () => mockResponse,
       });
 
@@ -241,6 +312,7 @@ describe('SiYuanClient', () => {
 
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
+        text: async () => JSON.stringify(mockResponse),
         json: async () => mockResponse,
       });
 
@@ -266,6 +338,7 @@ describe('SiYuanClient', () => {
 
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
+        text: async () => JSON.stringify(mockResponse),
         json: async () => mockResponse,
       });
 

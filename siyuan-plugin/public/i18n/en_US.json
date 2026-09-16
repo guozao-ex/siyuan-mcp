@@ -1,0 +1,21 @@
+{
+  "openPluginSettings": "MCP Plugin Settings",
+  "settings": "Settings",
+
+  "settingsPanel": {
+    "title": "MCP Plugin Settings",
+    "connection": "Connection Configuration",
+    "mcpServerUrl": "MCP Server URL",
+    "mcpServerUrlHint": "HTTP address of the MCP server, default http://127.0.0.1:3000",
+    "apiToken": "MCP Server Token",
+    "apiTokenHint": "Required when the server sets MCP_AUTH_TOKEN; the value must match exactly",
+    "autoConnect": "Auto-connect on startup",
+    "autoConnectHint": "Automatically connect to the MCP server when the plugin loads",
+    "about": "About",
+    "version": "SiYuan MCP Plugin v0.1.0",
+    "description": "Connect AI agents to SiYuan via MCP protocol",
+    "github": "GitHub Repository",
+    "resetToDefault": "Reset to Default",
+    "required": "*"
+  }
+}

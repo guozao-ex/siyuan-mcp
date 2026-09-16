@@ -8,16 +8,17 @@
   "scripts": {
     "dev": "vite build --watch --mode development",
     "build": "vite build",
-    "test": "echo \"Tests will be added in Phase 5\""
+    "typecheck": "tsc --noEmit",
+    "package": "node ../scripts/package-plugin.mjs",
+    "test": "echo \"[siyuan-plugin] 暂无单元测试；CI 通过 typecheck + build + package 验证\""
   },
-  "dependencies": {
-    "siyuan": "^0.9.16"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^3.1.2",
     "@tsconfig/svelte": "^5.0.4",
     "@types/node": "^22.5.5",
     "sass": "^1.78.0",
+    "siyuan": "^1.0.0",
     "svelte": "^4.2.19",
     "svelte-preprocess": "^6.0.2",
     "typescript": "^5.6.2",

@@ -1,13 +1,24 @@
 # Dependencies
 node_modules/
+
+# 注意：package-lock.json **刻意不忽略**。
+# 本项目使用 npm，锁文件必须提交，否则：
+#   1. CI 的 `npm ci` 会直接失败（它要求 lockfile 存在）
+#   2. 不同机器上的依赖树无法复现
+# 未被使用的包管理器的锁文件仍然忽略：
 pnpm-lock.yaml
-package-lock.json
 yarn.lock
 
 # Build outputs
 dist/
 build/
 *.tsbuildinfo
+
+# SiYuan plugin package output（由 scripts/package-plugin.mjs 生成）
+siyuan-plugin/package.zip
+
+# 第三方参考项目：自带独立的 .git，若不忽略会被父仓库当作内嵌仓库处理
+# （git add 会报警告、容易误提交）。它只是参考资料，不参与本项目构建。
 
 # Environment variables
 .env

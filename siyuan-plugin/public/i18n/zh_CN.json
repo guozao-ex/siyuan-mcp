@@ -1,0 +1,21 @@
+{
+  "openPluginSettings": "MCP 插件设置",
+  "settings": "设置",
+
+  "settingsPanel": {
+    "title": "MCP 插件设置",
+    "connection": "连接配置",
+    "mcpServerUrl": "MCP 服务器地址",
+    "mcpServerUrlHint": "MCP 服务器的 HTTP 地址，默认 http://127.0.0.1:3000",
+    "apiToken": "MCP 服务器 Token",
+    "apiTokenHint": "服务器设置了 MCP_AUTH_TOKEN 时必填，值需与其完全一致",
+    "autoConnect": "启动时自动连接",
+    "autoConnectHint": "插件加载时自动连接 MCP 服务器",
+    "about": "关于",
+    "version": "思源 MCP 插件 v0.1.0",
+    "description": "通过 MCP 协议连接 AI Agent 和思源笔记",
+    "github": "GitHub 仓库",
+    "resetToDefault": "重置为默认",
+    "required": "*"
+  }
+}

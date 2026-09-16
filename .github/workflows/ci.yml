@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+# 说明：
+#   - 三个子项目各自独立（非 workspace），因此拆成三个 job 便于定位失败。
+#   - 统一使用 `npm ci`，它要求 package-lock.json 存在且已提交；
+#     仓库根目录的 .gitignore 已刻意不再忽略该文件（否则 CI 无法复现依赖）。
+#   - mcp-server 的测试套件里有部分用例需要真实思源实例而处于 skip 状态，
+#     这是预期行为，不视为失败。
+
+jobs:
+  mcp-server:
+    name: mcp-server (typecheck + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mcp-server/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Test
+        run: npx vitest run
+
+  mcp-daemon:
+    name: mcp-daemon (typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp-daemon
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mcp-daemon/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+
+  siyuan-plugin:
+    name: siyuan-plugin (typecheck + build + package)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: siyuan-plugin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: siyuan-plugin/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      # 注意：这一步只覆盖 .ts 文件。.svelte 组件内部的类型错误需要
+      # svelte-check 才能发现，目前尚未接入（见 README 的开发指南）。
+      - name: Typecheck (TypeScript only)
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Package (.zip)
+        run: npm run package
+      - name: Upload plugin package
+        uses: actions/upload-artifact@v4
+        with:
+          name: siyuan-plugin-mcp-package
+          path: siyuan-plugin/package.zip
+          if-no-files-found: error

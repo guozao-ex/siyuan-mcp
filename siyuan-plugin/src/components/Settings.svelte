@@ -1,28 +1,35 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { DEFAULT_SETTINGS, type PluginSettings } from '../types';
 
   export let visible: boolean = false;
+  /**
+   * 插件**当前已持久化**的设置。由插件在每次打开面板时传入副本。
+   *
+   * 为什么需要它：此前组件内部只用自己的默认值，插件从不把真实设置传进来，
+   * 导致每次打开设置面板都显示 http://127.0.0.1:3000，用户以为设置丢了。
+   */
+  export let initialSettings: PluginSettings = { ...DEFAULT_SETTINGS };
   export let onClose: () => void;
-  export let onSave: (settings: Settings) => void;
+  export let onSave: (settings: PluginSettings) => void;
 
-  export interface Settings {
-    mcpServerUrl: string;
-    apiToken: string;
-    autoConnect: boolean;
-  }
-
-  let settings: Settings = {
-    mcpServerUrl: 'http://127.0.0.1:3000',
-    apiToken: '',
-    autoConnect: true,
-  };
-
-  let originalSettings: Settings;
+  /** 组件内的编辑态（用户改的是它，不是 initialSettings） */
+  let settings: PluginSettings = { ...initialSettings };
+  /** 用于判断"是否有改动"的基准值 */
+  let originalSettings: PluginSettings = { ...initialSettings };
   let hasChanges: boolean = false;
 
-  onMount(() => {
-    originalSettings = { ...settings };
-  });
+  let prevVisible = false;
+
+  // 面板由"隐藏"变为"显示"时，用外部传入的设置重置编辑态与基准值。
+  // 同一个块内更新 prevVisible，保证条件只成立一次，不会循环。
+  $: {
+    if (visible && !prevVisible) {
+      settings = { ...initialSettings };
+      originalSettings = { ...initialSettings };
+      hasChanges = false;
+    }
+    prevVisible = visible;
+  }
 
   $: hasChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings);
 
@@ -38,12 +45,12 @@
     onClose();
   }
 
+  /**
+   * 重置为默认值：只改**编辑态**，不落盘。
+   * 用户仍需点"保存"才会写入（保存按钮会因此变为可用）。
+   */
   function handleReset() {
-    settings = {
-      mcpServerUrl: 'http://127.0.0.1:3000',
-      apiToken: '',
-      autoConnect: true,
-    };
+    settings = { ...DEFAULT_SETTINGS };
   }
 </script>
 
@@ -85,17 +92,17 @@
 
           <div class="settings-field">
             <label class="settings-field__label" for="apiToken">
-              API Token
+              MCP 服务器 Token
             </label>
             <input
               id="apiToken"
               type="password"
               class="settings-field__input"
               bind:value={settings.apiToken}
-              placeholder="可选：思源笔记 API Token"
+              placeholder="可选：与服务器的 MCP_AUTH_TOKEN 保持一致"
             />
             <div class="settings-field__hint">
-              如果思源笔记启用了 API 认证，需要填写此项
+              服务器设置了 MCP_AUTH_TOKEN 时必填，值需与其完全一致；留空表示服务器未启用认证
             </div>
           </div>
 

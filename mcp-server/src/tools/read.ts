@@ -3,6 +3,7 @@
  */
 
 import type { SiYuanClient } from '../siyuan/api.js';
+import { findBlockRow, INDEX_HINT } from '../core/block-index.js';
 
 export interface ReadBlockResult {
   id: string;
@@ -34,19 +35,17 @@ export async function readBlock(
 ): Promise<ReadBlockResult> {
   const { id, includeAttributes = false } = args;
 
-  // Get block kramdown (markdown)
-  const kramdownResponse = await client.getBlockKramdown(id);
+  // 先确认块在索引里存在（带短暂重试），再取内容 ——
+  // 顺序很关键：getBlockKramdown 对不存在的块会直接抛错，
+  // 若先调它，就失去了重试的机会。
+  const block = await findBlockRow(client, id);
 
-  // Get block info from SQL
-  const sqlResponse = await client.sql(
-    `SELECT * FROM blocks WHERE id = '${id}'`
-  );
-
-  if (!sqlResponse || sqlResponse.length === 0) {
-    throw new Error(`Block not found: ${id}`);
+  if (!block) {
+    throw new Error(`Block not found: ${id}${INDEX_HINT}`);
   }
 
-  const block = sqlResponse[0];
+  // Get block kramdown (markdown)
+  const kramdownResponse = await client.getBlockKramdown(id);
 
   const result: ReadBlockResult = {
     id: block.id,
@@ -65,6 +64,12 @@ export async function readBlock(
 
 /**
  * Read a document (note) by ID
+ *
+ * 实现要点（曾经写错，导致内容重复 + N+1 次请求）：
+ * `getBlockKramdown(docId)` 对**文档**返回的是整篇 kramdown，其中已经包含
+ * 所有子块的正文。因此 `includeChildren: true` 时直接采用它即可 ——
+ * 旧实现还会再对每个子块各调一次 `getBlockKramdown` 并追加到末尾，
+ * 结果是正文在输出里出现两遍，且大文档会产生成百上千次请求。
  */
 export async function readDocument(
   client: SiYuanClient,
@@ -78,46 +83,22 @@ export async function readDocument(
   // Get document info
   const docInfo = await client.getDocInfo(id);
 
-  // Get document block content
-  const kramdownResponse = await client.getBlockKramdown(id);
+  // 查文档根块（带索引等待重试，理由见 findBlockRow）
+  const block = await findBlockRow(client, id);
 
-  // Get block metadata
-  const sqlResponse = await client.sql(
-    `SELECT * FROM blocks WHERE id = '${id}'`
-  );
-
-  if (!sqlResponse || sqlResponse.length === 0) {
-    throw new Error(`Document not found: ${id}`);
+  if (!block) {
+    throw new Error(`Document not found: ${id}${INDEX_HINT}`);
   }
 
-  const block = sqlResponse[0];
+  let fullMarkdown: string;
 
-  let fullMarkdown = kramdownResponse.kramdown || '';
-
-  // If includeChildren, get all child blocks
   if (includeChildren) {
-    const children = await client.sql(
-      `SELECT * FROM blocks WHERE root_id = '${id}' AND id != '${id}' ORDER BY sort`
-    );
-
-    if (children && children.length > 0) {
-      const childMarkdowns: string[] = [];
-
-      for (const child of children) {
-        try {
-          const childKramdown = await client.getBlockKramdown(child.id);
-          if (childKramdown.kramdown) {
-            childMarkdowns.push(childKramdown.kramdown);
-          }
-        } catch (error) {
-          console.warn(`Failed to get kramdown for block ${child.id}:`, error);
-        }
-      }
-
-      if (childMarkdowns.length > 0) {
-        fullMarkdown = fullMarkdown + '\n\n' + childMarkdowns.join('\n\n');
-      }
-    }
+    // 文档的 kramdown 已含全部子块正文
+    const kramdownResponse = await client.getBlockKramdown(id);
+    fullMarkdown = kramdownResponse.kramdown || '';
+  } else {
+    // 只要文档根块自身（通常就是标题那一段）
+    fullMarkdown = block.content || '';
   }
 
   return {

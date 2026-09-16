@@ -140,11 +140,21 @@ export interface InsertBlockRequest {
   parentID?: string;
 }
 
+/**
+ * 插入块的返回。
+ *
+ * ⚠️ 思源把这类返回值包在**数组**里：真实的响应是
+ *   { code: 0, data: [ { timestamp, doOperations: [ { action: 'insert', id: '<新块 ID>', ... } ] } ] }
+ * 而 api.ts 的 request() 只取出 data，因此 `insertBlock()` 的类型是
+ * `InsertBlockResponse[]`，新块 ID 位于 `response[0].doOperations[0].id`。
+ * （曾经按 `response.doOperations[0].id` 取值，结果永远取不到、返回 "unknown"。）
+ */
 export interface InsertBlockResponse {
+  timestamp?: number;
   doOperations: Array<{
     action: string;
     id: string;
-    data: string;
+    data?: string;
   }>;
 }
 
@@ -300,9 +310,20 @@ export interface CreateNotebookRequest {
   closed?: boolean;
 }
 
+/**
+ * 新建笔记本的返回。
+ *
+ * ⚠️ 真实结构是 `data.notebook.id`（多包了一层），而不是 `data.id` ——
+ * 按 `data.id` 取值会永远拿到 undefined。
+ */
 export interface CreateNotebookResponse {
-  id: string;
-  name: string;
+  notebook: {
+    id: string;
+    name: string;
+    icon?: string;
+    sort?: number;
+    closed?: boolean;
+  };
 }
 
 export interface CloseNotebookRequest {

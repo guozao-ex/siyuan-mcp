@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createHttpServer } from '../src/utils/http-server';
+import { createHttpServer } from '../src/server/http';
 import { createClient } from '../src/siyuan/api';
 
 const skipE2E = process.env.RUN_E2E_TESTS !== 'true';
